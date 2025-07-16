@@ -19,12 +19,66 @@ class PIDController:
         return self.kp * error + self.ki * self.integral + self.kd * derivative
 
 
-class Autopilot:
-    """Simple heading, altitude and speed hold with some system automation."""
+class Engine:
+    """Very small engine model with throttle spool dynamics."""
 
-    def __init__(self, fdm, dt):
+    def __init__(self, fdm, spool_rate=0.5):
+        self.fdm = fdm
+        self.spool_rate = spool_rate
+        self.throttle = 0.0
+        self.target = 0.0
+
+    def set_target(self, throttle):
+        self.target = max(0.0, min(throttle, 1.0))
+
+    def update(self, dt):
+        diff = self.target - self.throttle
+        max_delta = self.spool_rate * dt
+        diff = max(min(diff, max_delta), -max_delta)
+        self.throttle += diff
+        self.fdm['fcs/throttle-cmd-norm'] = self.throttle
+
+
+class SystemManager:
+    """Handles slow actuation of gear and flaps."""
+
+    def __init__(self, fdm, flap_rate=0.5, gear_rate=0.5):
+        self.fdm = fdm
+        self.flap_rate = flap_rate
+        self.gear_rate = gear_rate
+        self.flap = 0.0
+        self.gear = 0.0
+        self.target_flap = 0.0
+        self.target_gear = 0.0
+
+    def set_targets(self, gear=None, flap=None):
+        if gear is not None:
+            self.target_gear = max(0.0, min(gear, 1.0))
+        if flap is not None:
+            self.target_flap = max(0.0, min(flap, 1.0))
+
+    def update(self, dt):
+        d_flap = self.target_flap - self.flap
+        max_df = self.flap_rate * dt
+        d_flap = max(min(d_flap, max_df), -max_df)
+        self.flap += d_flap
+        self.fdm['fcs/flap-cmd-norm'] = self.flap
+
+        d_gear = self.target_gear - self.gear
+        max_dg = self.gear_rate * dt
+        d_gear = max(min(d_gear, max_dg), -max_dg)
+        self.gear += d_gear
+        self.fdm['gear/gear-cmd-norm'] = self.gear
+
+
+class Autopilot:
+    """Heading, altitude and speed hold with basic system automation."""
+
+    def __init__(self, fdm, dt, engine, systems):
         self.fdm = fdm
         self.dt = dt
+        self.engine = engine
+        self.systems = systems
         self.altitude = 0.0
         self.heading = 0.0
         self.speed = 0.0
@@ -46,10 +100,8 @@ class Autopilot:
 
     def _manage_systems(self, alt, speed):
         """Very naive flap and gear scheduling for a bit of system depth."""
-        f = self.fdm
         # Landing gear
         gear_cmd = 1.0 if alt < 1500 and speed < 180 else 0.0
-        f['gear/gear-cmd-norm'] = gear_cmd
 
         # Simple flap schedule based on speed
         if speed < 120:
@@ -62,7 +114,7 @@ class Autopilot:
             flap = 0.25
         else:
             flap = 0.0
-        f['fcs/flap-cmd-norm'] = flap
+        self.systems.set_targets(gear=gear_cmd, flap=flap)
 
     def update(self):
         f = self.fdm
@@ -89,11 +141,13 @@ class Autopilot:
 
         speed_error = self.speed - speed
         throttle_cmd = max(min(self.spd_pid.update(speed_error, self.dt), 1.0), 0.0)
-        f['fcs/throttle-cmd-norm'] = throttle_cmd
+        self.engine.set_target(throttle_cmd)
+        self.engine.update(self.dt)
 
         self._manage_systems(alt, speed)
+        self.systems.update(self.dt)
 
-        return alt, speed, psi, pitch_cmd, aileron_cmd, throttle_cmd
+        return alt, speed, psi, pitch_cmd, aileron_cmd, self.engine.throttle
 
 class A320IFRSim:
     def __init__(self, root_dir='jsbsim-master', dt=0.02):
@@ -105,7 +159,9 @@ class A320IFRSim:
         self.target_altitude = 4000  # feet
         self.target_psi = 0  # heading degrees
         self.target_speed = 250  # knots
-        self.autopilot = Autopilot(self.fdm, dt)
+        self.engine = Engine(self.fdm)
+        self.systems = SystemManager(self.fdm)
+        self.autopilot = Autopilot(self.fdm, dt, self.engine, self.systems)
         self.init_conditions()
         self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
 
