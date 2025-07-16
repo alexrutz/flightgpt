@@ -9,7 +9,9 @@ automatically and the remaining fuel is displayed as the flight progresses.
 Recent updates include a simple fuel system that reports per-engine fuel flow
 and throttle commands with a short spool lag for more realistic behaviour.
 A basic hydraulic model now limits flap and gear motion when pressure is low
-and prints the current pressure for reference.
+and prints the current pressure for reference. A tiny electrical system with a
+battery and generator now powers the autopilot and hydraulics, so running out
+of charge disables the servos.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
