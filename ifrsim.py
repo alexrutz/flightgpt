@@ -24,13 +24,25 @@ class PIDController:
 class Engine:
     """Simple engine model with throttle spool dynamics."""
 
-    def __init__(self, fdm, spool_rate=0.2):
+    def __init__(self, fdm, spool_rate=0.2, failure_chance=0.0):
         self.fdm = fdm
         self.spool_rate = spool_rate
+        self.failure_chance = failure_chance
         self.throttle = 0.0
         self.target = 0.0
         self.efficiency = 1.0
         self.extra_fuel_factor = 0.0
+        self.failed = False
+
+    def fail(self) -> None:
+        """Fail both engines."""
+        self.failed = True
+        self.fdm['propulsion/engine/set-running'] = 0
+        self.fdm['propulsion/engine[1]/set-running'] = 0
+
+    def restart(self) -> None:
+        """Clear failure flag once the engines are running again."""
+        self.failed = False
 
     def set_target(self, throttle: float) -> None:
         """Set desired throttle position."""
@@ -38,13 +50,18 @@ class Engine:
 
     def update(self, dt: float) -> None:
         """Update engine throttle command with a simple non-linear lag."""
-        diff = self.target - self.throttle
-        # Allow faster spool when the commanded change is large
-        rate = self.spool_rate * (1.0 + 2.0 * abs(diff))
-        max_delta = rate * dt
-        diff = max(min(diff, max_delta), -max_delta)
-        self.throttle += diff
-        # Apply command to both engines with efficiency factor
+        if not self.failed:
+            diff = self.target - self.throttle
+            # Allow faster spool when the commanded change is large
+            rate = self.spool_rate * (1.0 + 2.0 * abs(diff))
+            max_delta = rate * dt
+            diff = max(min(diff, max_delta), -max_delta)
+            self.throttle += diff
+            if random.random() < self.failure_chance * dt:
+                self.fail()
+        else:
+            self.throttle = 0.0
+
         cmd = self.throttle * self.efficiency
         self.fdm['fcs/throttle-cmd-norm'] = cmd
         self.fdm['fcs/throttle-cmd-norm[1]'] = cmd
@@ -241,6 +258,7 @@ class ElectricSystem:
         discharge_rate=0.05,
         apu_charge_rate=0.1,
         apu_start_time=5.0,
+        generator_failure_chance=0.0,
     ):
         self.charge = 1.0
         self.charge_rate = charge_rate
@@ -249,6 +267,8 @@ class ElectricSystem:
         self.apu_start_time = apu_start_time
         self.apu_running = False
         self.apu_timer = 0.0
+        self.generator_failure_chance = generator_failure_chance
+        self.generator_failed = False
 
     def start_apu(self) -> None:
         if not self.apu_running:
@@ -259,8 +279,11 @@ class ElectricSystem:
         self.apu_running = False
 
     def update(self, generator_on: bool, demand: float, dt: float) -> float:
-        if generator_on:
-            self.charge += self.charge_rate * dt
+        if generator_on and not self.generator_failed:
+            if random.random() < self.generator_failure_chance * dt:
+                self.generator_failed = True
+            else:
+                self.charge += self.charge_rate * dt
         elif self.apu_running:
             # Allow a small delay before the APU provides power
             self.apu_timer += dt
@@ -271,10 +294,12 @@ class ElectricSystem:
         self.charge = max(0.0, min(self.charge, 1.0))
 
         # Automatically start the APU if the battery is low and the
-        # generator is not running. Stop it once the battery has recovered.
-        if self.charge < 0.3 and not generator_on:
+        # generator is not running or has failed. Stop it once the battery
+        # has recovered and the generator is available again.
+        gen_available = generator_on and not self.generator_failed
+        if self.charge < 0.3 and not gen_available:
             self.start_apu()
-        if self.charge > 0.95 and self.apu_running and generator_on:
+        if self.charge > 0.95 and self.apu_running and gen_available:
             self.stop_apu()
 
         return self.charge
@@ -307,9 +332,10 @@ class BleedAirSystem:
 class EngineStartSystem:
     """Start the engines using bleed air with a short delay."""
 
-    def __init__(self, fdm, bleed, start_time=8.0):
+    def __init__(self, fdm, bleed, engine=None, start_time=8.0):
         self.fdm = fdm
         self.bleed = bleed
+        self.engine = engine
         self.start_time = start_time
         self.timer = 0.0
         self.state = "stopped"
@@ -328,6 +354,8 @@ class EngineStartSystem:
             if self.timer >= self.start_time:
                 self.fdm["propulsion/engine/set-running"] = 1
                 self.fdm["propulsion/engine[1]/set-running"] = 1
+                if self.engine is not None:
+                    self.engine.restart()
                 self.state = "running"
         return self.state == "running"
 
@@ -370,12 +398,21 @@ class Environment:
 class AntiIceSystem:
     """Minimal anti-ice system that counters engine icing."""
 
-    def __init__(self, environment, engine, bleed=None, melt_rate=0.05, acc_rate=0.1):
+    def __init__(
+        self,
+        environment,
+        engine,
+        bleed=None,
+        melt_rate=0.05,
+        acc_rate=0.1,
+        failure_chance=0.0,
+    ):
         self.environment = environment
         self.engine = engine
         self.bleed = bleed
         self.melt_rate = melt_rate
         self.acc_rate = acc_rate
+        self.failure_chance = failure_chance
         self.active = False
         self.ice = 0.0
 
@@ -393,6 +430,8 @@ class AntiIceSystem:
         self.ice = max(0.0, min(1.0, self.ice))
         self.engine.efficiency = 1.0 - 0.3 * self.ice
         self.engine.extra_fuel_factor = 0.05 if self.active else 0.0
+        if self.ice > 0.9 and random.random() < self.failure_chance * dt:
+            self.engine.fail()
         return self.active, self.ice
 
 
@@ -683,14 +722,16 @@ class A320IFRSim:
         self.target_altitude = 4000  # feet
         self.target_psi = 0  # heading degrees
         self.target_speed = 250  # knots
-        self.engine = Engine(self.fdm)
+        self.engine = Engine(self.fdm, failure_chance=5e-5)
         self.systems = SystemManager(self.fdm, failure_chance=1e-4)
-        self.electrics = ElectricSystem()
+        self.electrics = ElectricSystem(generator_failure_chance=5e-5)
         self.fuel = FuelSystem(self.fdm, self.engine, self.electrics)
         self.bleed = BleedAirSystem(self.engine, self.electrics)
-        self.starter = EngineStartSystem(self.fdm, self.bleed)
+        self.starter = EngineStartSystem(self.fdm, self.bleed, self.engine)
         self.environment = Environment(self.fdm)
-        self.anti_ice = AntiIceSystem(self.environment, self.engine, self.bleed)
+        self.anti_ice = AntiIceSystem(
+            self.environment, self.engine, self.bleed, failure_chance=1e-4
+        )
         self.pressurization = PressurizationSystem(self.fdm, self.bleed)
         self.oxygen = OxygenSystem()
         self.stall_warning = StallWarningSystem(self.fdm)
@@ -738,6 +779,8 @@ class A320IFRSim:
         dt = self.fdm.get_delta_t()
         self.environment.update(dt)
         self.starter.update(dt)
+        if self.engine.failed and self.starter.state == "running":
+            self.starter.request_start()
         (
             alt,
             speed,
