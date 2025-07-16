@@ -20,23 +20,31 @@ class PIDController:
 
 
 class Engine:
-    """Very small engine model with throttle spool dynamics."""
+    """Simple engine model with throttle spool dynamics."""
 
-    def __init__(self, fdm, spool_rate=0.5):
+    def __init__(self, fdm, spool_rate=0.2):
         self.fdm = fdm
         self.spool_rate = spool_rate
         self.throttle = 0.0
         self.target = 0.0
 
-    def set_target(self, throttle):
+    def set_target(self, throttle: float) -> None:
+        """Set desired throttle position."""
         self.target = max(0.0, min(throttle, 1.0))
 
-    def update(self, dt):
+    def update(self, dt: float) -> None:
+        """Update engine throttle command with a simple first order lag."""
         diff = self.target - self.throttle
         max_delta = self.spool_rate * dt
         diff = max(min(diff, max_delta), -max_delta)
         self.throttle += diff
+        # Apply command to both engines
         self.fdm['fcs/throttle-cmd-norm'] = self.throttle
+        self.fdm['fcs/throttle-cmd-norm[1]'] = self.throttle
+
+    def n1(self) -> float:
+        """Return the N1 (fan speed) of the first engine."""
+        return self.fdm.get_property_value('propulsion/engine/n1')
 
 
 class SystemManager:
@@ -69,6 +77,34 @@ class SystemManager:
         d_gear = max(min(d_gear, max_dg), -max_dg)
         self.gear += d_gear
         self.fdm['gear/gear-cmd-norm'] = self.gear
+
+
+class FuelSystem:
+    """Track fuel quantity and burn rate for a simple two tank setup."""
+
+    def __init__(self, fdm):
+        self.fdm = fdm
+        self.prev_used_0 = fdm.get_property_value('propulsion/engine/fuel-used-lbs')
+        self.prev_used_1 = fdm.get_property_value('propulsion/engine[1]/fuel-used-lbs')
+
+    def update(self):
+        dt = self.fdm.get_delta_t()
+        used_0 = self.fdm.get_property_value('propulsion/engine/fuel-used-lbs')
+        used_1 = self.fdm.get_property_value('propulsion/engine[1]/fuel-used-lbs')
+        flow_0 = (used_0 - self.prev_used_0) / dt * 3600.0
+        flow_1 = (used_1 - self.prev_used_1) / dt * 3600.0
+        self.prev_used_0 = used_0
+        self.prev_used_1 = used_1
+        left = self.fdm.get_property_value('propulsion/tank/contents-lbs')
+        right = self.fdm.get_property_value('propulsion/tank[1]/contents-lbs')
+        total = self.fdm.get_property_value('propulsion/total-fuel-lbs')
+        return {
+            'left_lbs': left,
+            'right_lbs': right,
+            'total_lbs': total,
+            'flow0_pph': flow_0,
+            'flow1_pph': flow_1,
+        }
 
 
 class Autopilot:
@@ -147,7 +183,8 @@ class Autopilot:
         self._manage_systems(alt, speed)
         self.systems.update(self.dt)
 
-        return alt, speed, psi, pitch_cmd, aileron_cmd, self.engine.throttle
+        n1 = self.engine.n1()
+        return alt, speed, psi, pitch_cmd, aileron_cmd, self.engine.throttle, n1
 
 class A320IFRSim:
     def __init__(self, root_dir='jsbsim-master', dt=0.02):
@@ -161,6 +198,7 @@ class A320IFRSim:
         self.target_speed = 250  # knots
         self.engine = Engine(self.fdm)
         self.systems = SystemManager(self.fdm)
+        self.fuel = FuelSystem(self.fdm)
         self.autopilot = Autopilot(self.fdm, dt, self.engine, self.systems)
         self.init_conditions()
         self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
@@ -180,8 +218,9 @@ class A320IFRSim:
         f['propulsion/set-running'] = 1
 
     def step(self):
-        alt, speed, psi, pitch_cmd, aileron_cmd, throttle_cmd = self.autopilot.update()
-        fuel = self.fdm.get_property_value('propulsion/total-fuel-lbs')
+        alt, speed, psi, pitch_cmd, aileron_cmd, throttle_cmd, n1 = self.autopilot.update()
+        fuel_data = self.fuel.update()
+        fuel = fuel_data['total_lbs']
         flap = self.fdm.get_property_value('fcs/flap-pos-norm')
         gear = self.fdm.get_property_value('gear/gear-pos-norm')
         vs_fpm = self.fdm.get_property_value('velocities/h-dot-fps') * 60.0
@@ -194,9 +233,12 @@ class A320IFRSim:
             'pitch_cmd': pitch_cmd,
             'aileron_cmd': aileron_cmd,
             'throttle_cmd': throttle_cmd,
+            'n1': n1,
             'flap': flap,
             'gear': gear,
             'fuel_lbs': fuel,
+            'fuel_flow_lbs_hr_eng1': fuel_data['flow0_pph'],
+            'fuel_flow_lbs_hr_eng2': fuel_data['flow1_pph'],
         }
 
     def run(self, steps=600):
@@ -207,7 +249,9 @@ class A320IFRSim:
                     f"t={i*self.fdm.get_delta_t():.1f}s alt={data['altitude_ft']:.1f}ft "
                     f"spd={data['speed_kt']:.1f}kt hdg={data['heading_deg']:.1f} "
                     f"vs={data['vs_fpm']:.0f}fpm flap={data['flap']:.2f} "
-                    f"gear={data['gear']:.0f} fuel={data['fuel_lbs']:.0f}lb"
+                    f"gear={data['gear']:.0f} thr={data['throttle_cmd']:.2f} "
+                    f"n1={ (data['n1']*100 if data['n1']<=2 else data['n1']):.0f}% fuel={data['fuel_lbs']:.0f}lb "
+                    f"ff={data['fuel_flow_lbs_hr_eng1']:.0f}/{data['fuel_flow_lbs_hr_eng2']:.0f} pph"
                 )
             time.sleep(self.fdm.get_delta_t())
 
