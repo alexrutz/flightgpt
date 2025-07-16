@@ -22,9 +22,9 @@ class PIDController:
 
 
 class Engine:
-    """Simple engine model with throttle spool dynamics."""
+    """Simple engine model with throttle spool dynamics and oil system."""
 
-    def __init__(self, fdm, spool_rate=0.2, failure_chance=0.0):
+    def __init__(self, fdm, spool_rate=0.2, failure_chance=0.0, oil=None):
         self.fdm = fdm
         self.spool_rate = spool_rate
         self.failure_chance = failure_chance
@@ -33,6 +33,8 @@ class Engine:
         self.efficiency = 1.0
         self.extra_fuel_factor = 0.0
         self.failed = False
+        self.oil = oil or OilSystem()
+        self.oil_timer = 0.0
 
     def fail(self) -> None:
         """Fail both engines."""
@@ -66,9 +68,23 @@ class Engine:
         self.fdm['fcs/throttle-cmd-norm'] = cmd
         self.fdm['fcs/throttle-cmd-norm[1]'] = cmd
 
+        oil_p, oil_t = self.oil.update(self.throttle, dt)
+        if oil_p < 0.2 or oil_t > 1.2:
+            self.oil_timer += dt
+        else:
+            self.oil_timer = 0.0
+        if self.oil_timer > 5.0:
+            self.fail()
+
     def n1(self) -> float:
         """Return the N1 (fan speed) of the first engine."""
         return self.fdm.get_property_value('propulsion/engine/n1')
+
+    def oil_pressure(self) -> float:
+        return self.oil.pressure
+
+    def oil_temperature(self) -> float:
+        return self.oil.temperature
 
 
 class Autothrottle:
@@ -139,6 +155,41 @@ class BrakeSystem:
         self.heat = max(0.0, min(self.heat, 1.0))
         efficiency = 1.0 - 0.5 * self.heat
         return efficiency, self.heat
+
+
+class OilSystem:
+    """Track basic oil pressure and temperature."""
+
+    def __init__(
+        self,
+        pump_rate=0.5,
+        leak_rate=0.02,
+        heat_rate=0.3,
+        cool_rate=0.1,
+        failure_chance=0.0,
+    ):
+        self.pressure = 1.0
+        self.temperature = 0.2
+        self.pump_rate = pump_rate
+        self.leak_rate = leak_rate
+        self.heat_rate = heat_rate
+        self.cool_rate = cool_rate
+        self.failure_chance = failure_chance
+        self.pump_on = True
+
+    def update(self, throttle: float, dt: float) -> tuple[float, float]:
+        if self.pump_on:
+            if random.random() < self.failure_chance * dt:
+                self.pump_on = False
+            else:
+                self.pressure += self.pump_rate * throttle * dt
+        self.pressure -= self.leak_rate * dt
+        self.pressure = max(0.0, min(self.pressure, 1.0))
+
+        self.temperature += self.heat_rate * throttle * dt
+        self.temperature -= self.cool_rate * dt
+        self.temperature = max(0.0, self.temperature)
+        return self.pressure, self.temperature
 
 
 class SystemManager:
@@ -732,6 +783,8 @@ class Autopilot:
         active, ice = self.anti_ice.update(self.dt)
 
         n1 = self.engine.n1()
+        oil_p = self.engine.oil_pressure()
+        oil_t = self.engine.oil_temperature()
         return (
             alt,
             speed,
@@ -746,6 +799,8 @@ class Autopilot:
             ice,
             nav_dist,
             brake_temp,
+            oil_p,
+            oil_t,
         )
 
 class A320IFRSim:
@@ -833,6 +888,8 @@ class A320IFRSim:
             ice_accum,
             nav_dist,
             brake_temp,
+            oil_press,
+            oil_temp,
         ) = self.autopilot.update()
         elec = self.electrics.update(n1 > 0.5, hyd_demand + 0.1, dt)
         cabin_alt, cabin_diff, bleed_press = self.pressurization.update(dt)
@@ -875,6 +932,8 @@ class A320IFRSim:
             'overspeed_warning': overspeed,
             'nav_dist_nm': nav_dist,
             'brake_temp': brake_temp,
+            'oil_press': oil_press,
+            'oil_temp': oil_temp,
         }
 
     def run(self, steps=600):
@@ -900,7 +959,8 @@ class A320IFRSim:
                     f"gpws={'YES' if data['gpws_warning'] else 'NO'} "
                     f"os={'YES' if data['overspeed_warning'] else 'NO'} "
                     f"d2wp={data['nav_dist_nm']:.1f}nm "
-                    f"brk={data['brake_temp']:.2f}"
+                    f"brk={data['brake_temp']:.2f} "
+                    f"oil={data['oil_press']:.2f}/{data['oil_temp']:.2f}"
                 )
             time.sleep(self.fdm.get_delta_t())
 
