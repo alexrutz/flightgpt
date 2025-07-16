@@ -283,6 +283,27 @@ class ElectricSystem:
         return self.charge > 0.05
 
 
+class BleedAirSystem:
+    """Provide bleed air from the engines or APU."""
+
+    def __init__(self, engine, electrics, engine_gain=1.0, apu_gain=0.5):
+        self.engine = engine
+        self.electrics = electrics
+        self.engine_gain = engine_gain
+        self.apu_gain = apu_gain
+        self.pressure = 0.0
+
+    def update(self) -> float:
+        self.pressure = 0.0
+        n1 = self.engine.n1()
+        if n1 > 0.2:
+            self.pressure += n1 * self.engine_gain
+        if self.electrics.apu_running:
+            self.pressure += self.apu_gain
+        self.pressure = max(0.0, min(self.pressure, 1.0))
+        return self.pressure
+
+
 class Environment:
     """Wind model with simple lateral and vertical gusts."""
 
@@ -321,9 +342,10 @@ class Environment:
 class AntiIceSystem:
     """Minimal anti-ice system that counters engine icing."""
 
-    def __init__(self, environment, engine, melt_rate=0.05, acc_rate=0.1):
+    def __init__(self, environment, engine, bleed=None, melt_rate=0.05, acc_rate=0.1):
         self.environment = environment
         self.engine = engine
+        self.bleed = bleed
         self.melt_rate = melt_rate
         self.acc_rate = acc_rate
         self.active = False
@@ -336,7 +358,10 @@ class AntiIceSystem:
         if self.environment.is_icing() and not self.active:
             self.ice += self.acc_rate * dt
         else:
-            self.ice -= self.melt_rate * dt
+            melt = self.melt_rate
+            if self.active and self.bleed is not None:
+                melt *= self.bleed.pressure
+            self.ice -= melt * dt
         self.ice = max(0.0, min(1.0, self.ice))
         self.engine.efficiency = 1.0 - 0.3 * self.ice
         self.engine.extra_fuel_factor = 0.05 if self.active else 0.0
@@ -346,8 +371,9 @@ class AntiIceSystem:
 class PressurizationSystem:
     """Track cabin altitude based on a simple pressurization model."""
 
-    def __init__(self, fdm, target_diff=8.0, leak_rate=0.001):
+    def __init__(self, fdm, bleed=None, target_diff=8.0, leak_rate=0.001):
         self.fdm = fdm
+        self.bleed = bleed
         self.target_diff = target_diff
         self.leak_rate = leak_rate
         self.cabin_alt = fdm.get_property_value('position/h-sl-ft')
@@ -360,10 +386,13 @@ class PressurizationSystem:
         amb = self._pressure_at_alt(alt)
         cab = self._pressure_at_alt(self.cabin_alt)
         diff = cab - amb
-        cab += (self.target_diff - diff) * 0.1 * dt
+        bleed = 1.0
+        if self.bleed is not None:
+            bleed = self.bleed.update()
+        cab += (self.target_diff - diff) * 0.1 * dt * bleed
         self.cabin_alt = -20000.0 * math.log(max(cab, 0.01) / 14.7)
         self.cabin_alt += (alt - self.cabin_alt) * self.leak_rate * dt
-        return self.cabin_alt, diff
+        return self.cabin_alt, diff, bleed
 
 
 class OxygenSystem:
@@ -578,9 +607,10 @@ class A320IFRSim:
         self.systems = SystemManager(self.fdm, failure_chance=1e-4)
         self.electrics = ElectricSystem()
         self.fuel = FuelSystem(self.fdm, self.engine, self.electrics)
+        self.bleed = BleedAirSystem(self.engine, self.electrics)
         self.environment = Environment(self.fdm)
-        self.anti_ice = AntiIceSystem(self.environment, self.engine)
-        self.pressurization = PressurizationSystem(self.fdm)
+        self.anti_ice = AntiIceSystem(self.environment, self.engine, self.bleed)
+        self.pressurization = PressurizationSystem(self.fdm, self.bleed)
         self.oxygen = OxygenSystem()
         self.stall_warning = StallWarningSystem(self.fdm)
         self.gpws = GroundProximityWarningSystem(self.fdm)
@@ -628,7 +658,7 @@ class A320IFRSim:
             ice_accum,
         ) = self.autopilot.update()
         elec = self.electrics.update(n1 > 0.5, hyd_demand + 0.1, dt)
-        cabin_alt, cabin_diff = self.pressurization.update(dt)
+        cabin_alt, cabin_diff, bleed_press = self.pressurization.update(dt)
         fuel_data = self.fuel.update()
         oxygen = self.oxygen.update(cabin_alt, dt)
         stall = self.stall_warning.update()
@@ -656,6 +686,7 @@ class A320IFRSim:
             'ice_accum': ice_accum,
             'cabin_altitude_ft': cabin_alt,
             'cabin_diff_psi': cabin_diff,
+            'bleed_press': bleed_press,
             'fuel_lbs': fuel,
             'fuel_flow_lbs_hr_eng1': fuel_data['flow0_pph'],
             'fuel_flow_lbs_hr_eng2': fuel_data['flow1_pph'],
@@ -680,6 +711,7 @@ class A320IFRSim:
                     f"hyd={data['hyd_press']:.2f} elec={data['elec_charge']:.2f} "
                     f"fuel={data['fuel_lbs']:.0f}lb "
                     f"cabin={data['cabin_altitude_ft']:.0f}ft "
+                    f"bleed={data['bleed_press']:.2f} "
                     f"ff={data['fuel_flow_lbs_hr_eng1']:.0f}/{data['fuel_flow_lbs_hr_eng2']:.0f} pph "
                     f"apu={data['apu_flow_lbs_hr']:.0f}pph "
                     f"xfeed={'ON' if data['crossfeed'] else 'OFF'} "

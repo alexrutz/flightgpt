@@ -26,6 +26,8 @@ An automatic autothrottle system now maintains the commanded airspeed for
 more realistic power management. The latest build adds an overspeed warning
 with automatic speedbrake deployment and introduces random hydraulic pump
 failures for additional system depth.
+A new bleed air model now ties engine and APU performance to cabin
+pressurization and anti-ice efficiency for greater realism.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
