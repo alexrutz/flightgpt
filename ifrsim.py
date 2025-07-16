@@ -54,6 +54,32 @@ class Engine:
         return self.fdm.get_property_value('propulsion/engine/n1')
 
 
+class Autothrottle:
+    """Maintain target airspeed by commanding engine thrust."""
+
+    def __init__(self, fdm, engine, kp=0.01, ki=0.0, kd=0.0):
+        self.fdm = fdm
+        self.engine = engine
+        self.pid = PIDController(kp, ki, kd)
+        self.target_speed = 0.0
+
+    def set_target(self, speed_kt: float) -> None:
+        """Set desired airspeed in knots."""
+        self.target_speed = speed_kt
+
+    def update(self, dt: float, powered: bool = True) -> float:
+        """Update engine throttle to hold the target speed."""
+        speed = self.fdm.get_property_value('velocities/vt-fps') / 1.68781
+        throttle_cmd = self.pid.update(self.target_speed - speed, dt)
+        throttle_cmd = max(0.0, min(throttle_cmd, 1.0))
+        if powered:
+            self.engine.set_target(throttle_cmd)
+        else:
+            self.engine.set_target(0.0)
+        self.engine.update(dt)
+        return self.engine.throttle
+
+
 class HydraulicSystem:
     """Very small hydraulic system model."""
 
@@ -392,6 +418,7 @@ class Autopilot:
         self.electrics = electrics
         self.environment = environment
         self.anti_ice = anti_ice
+        self.autothrottle = Autothrottle(fdm, engine)
         self.altitude = 0.0
         self.heading = 0.0
         self.speed = 0.0
@@ -400,7 +427,6 @@ class Autopilot:
         self.alt_pid = PIDController(0.002)
         self.vs_pid = PIDController(0.005)
         self.hdg_pid = PIDController(0.02)
-        self.spd_pid = PIDController(0.01)
         self.yaw_pid = PIDController(0.1)
         self.vs_target_fpm = 0.0
         self.capture_window = capture_window
@@ -418,6 +444,7 @@ class Autopilot:
             self.heading = heading
         if speed is not None:
             self.speed = speed
+            self.autothrottle.set_target(speed)
         if vs is not None:
             self.vs_target_fpm = vs
 
@@ -484,13 +511,7 @@ class Autopilot:
         else:
             f['fcs/rudder-cmd-norm'] = 0.0
 
-        speed_error = self.speed - speed
-        throttle_cmd = max(min(self.spd_pid.update(speed_error, self.dt), 1.0), 0.0)
-        if powered:
-            self.engine.set_target(throttle_cmd)
-        else:
-            self.engine.set_target(0.0)
-        self.engine.update(self.dt)
+        throttle_cmd = self.autothrottle.update(self.dt, powered)
         active, ice = self.anti_ice.update(self.dt)
 
         n1 = self.engine.n1()

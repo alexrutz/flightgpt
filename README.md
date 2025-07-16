@@ -22,6 +22,8 @@ simple altitude capture mode that uses a constant climb or descent rate until
 the target is nearly reached. The fuel system now includes an automatic
 crossfeed to balance the tanks and engine spool dynamics respond quicker when
 large throttle changes are commanded.
+An automatic autothrottle system now maintains the commanded airspeed for
+more realistic power management.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
