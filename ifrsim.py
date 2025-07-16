@@ -81,46 +81,56 @@ class Autothrottle:
 
 
 class HydraulicSystem:
-    """Very small hydraulic system model."""
+    """Very small hydraulic system model with basic failures."""
 
-    def __init__(self, pump_rate=0.3, usage_factor=0.5, leak_rate=0.01):
+    def __init__(self, pump_rate=0.3, usage_factor=0.5, leak_rate=0.01, failure_chance=0.0):
         self.pressure = 1.0
         self.pump_rate = pump_rate
         self.usage_factor = usage_factor
         self.leak_rate = leak_rate
+        self.failure_chance = failure_chance
         self.pump_on = True
 
     def update(self, demand: float, dt: float) -> float:
         if self.pump_on:
-            self.pressure += self.pump_rate * dt
+            if random.random() < self.failure_chance * dt:
+                self.pump_on = False
+            else:
+                self.pressure += self.pump_rate * dt
         self.pressure -= (self.leak_rate + demand * self.usage_factor) * dt
         self.pressure = max(0.0, min(self.pressure, 1.0))
         return self.pressure
 
 
 class SystemManager:
-    """Handles slow actuation of gear and flaps with hydraulics."""
+    """Handles slow actuation of gear, flaps and speedbrake with hydraulics."""
 
-    def __init__(self, fdm, flap_rate=0.5, gear_rate=0.5):
+    def __init__(self, fdm, flap_rate=0.5, gear_rate=0.5, speedbrake_rate=0.5, failure_chance=0.0):
         self.fdm = fdm
         self.flap_rate = flap_rate
         self.gear_rate = gear_rate
+        self.speedbrake_rate = speedbrake_rate
         self.flap = 0.0
         self.gear = 0.0
+        self.speedbrake = 0.0
         self.target_flap = 0.0
         self.target_gear = 0.0
-        self.hydraulics = HydraulicSystem()
+        self.target_speedbrake = 0.0
+        self.hydraulics = HydraulicSystem(failure_chance=failure_chance)
 
-    def set_targets(self, gear=None, flap=None):
+    def set_targets(self, gear=None, flap=None, speedbrake=None):
         if gear is not None:
             self.target_gear = max(0.0, min(gear, 1.0))
         if flap is not None:
             self.target_flap = max(0.0, min(flap, 1.0))
+        if speedbrake is not None:
+            self.target_speedbrake = max(0.0, min(speedbrake, 1.0))
 
     def update(self, dt):
         d_flap = self.target_flap - self.flap
         d_gear = self.target_gear - self.gear
-        demand = abs(d_flap) + abs(d_gear)
+        d_speedbrake = self.target_speedbrake - self.speedbrake
+        demand = abs(d_flap) + abs(d_gear) + abs(d_speedbrake)
         pressure = self.hydraulics.update(demand, dt)
 
         max_df = self.flap_rate * dt * pressure
@@ -132,6 +142,11 @@ class SystemManager:
         d_gear = max(min(d_gear, max_dg), -max_dg)
         self.gear += d_gear
         self.fdm['gear/gear-cmd-norm'] = self.gear
+
+        max_ds = self.speedbrake_rate * dt * pressure
+        d_speedbrake = max(min(d_speedbrake, max_ds), -max_ds)
+        self.speedbrake += d_speedbrake
+        self.fdm['fcs/speedbrake-cmd-norm'] = self.speedbrake
 
         return pressure, demand
 
@@ -395,6 +410,18 @@ class GroundProximityWarningSystem:
         return agl < self.alt_thresh and vs_fpm < self.sink_thresh
 
 
+class OverspeedWarningSystem:
+    """Warn when exceeding a structural speed limit."""
+
+    def __init__(self, fdm, limit_kt=320.0):
+        self.fdm = fdm
+        self.limit = limit_kt
+
+    def update(self):
+        speed = self.fdm.get_property_value('velocities/vt-fps') / 1.68781
+        return speed > self.limit
+
+
 class Autopilot:
     """Heading, altitude and speed hold with basic system automation."""
 
@@ -449,7 +476,7 @@ class Autopilot:
             self.vs_target_fpm = vs
 
     def _manage_systems(self, alt, speed):
-        """Very naive flap and gear scheduling for a bit of system depth."""
+        """Very naive flap, gear and speedbrake scheduling."""
         # Landing gear
         gear_cmd = 1.0 if alt < 1500 and speed < 180 else 0.0
 
@@ -464,7 +491,15 @@ class Autopilot:
             flap = 0.25
         else:
             flap = 0.0
-        self.systems.set_targets(gear=gear_cmd, flap=flap)
+
+        # Automatically deploy the speedbrake when overspeeding
+        if speed > 320:
+            speedbrake = 1.0
+        elif speed > 280:
+            speedbrake = (speed - 280) / 40.0
+        else:
+            speedbrake = 0.0
+        self.systems.set_targets(gear=gear_cmd, flap=flap, speedbrake=speedbrake)
 
         # Auto anti-ice when icing conditions are detected
         icing = self.environment.is_icing()
@@ -540,7 +575,7 @@ class A320IFRSim:
         self.target_psi = 0  # heading degrees
         self.target_speed = 250  # knots
         self.engine = Engine(self.fdm)
-        self.systems = SystemManager(self.fdm)
+        self.systems = SystemManager(self.fdm, failure_chance=1e-4)
         self.electrics = ElectricSystem()
         self.fuel = FuelSystem(self.fdm, self.engine, self.electrics)
         self.environment = Environment(self.fdm)
@@ -549,6 +584,7 @@ class A320IFRSim:
         self.oxygen = OxygenSystem()
         self.stall_warning = StallWarningSystem(self.fdm)
         self.gpws = GroundProximityWarningSystem(self.fdm)
+        self.overspeed = OverspeedWarningSystem(self.fdm)
         self.autopilot = Autopilot(
             self.fdm,
             dt,
@@ -597,6 +633,7 @@ class A320IFRSim:
         oxygen = self.oxygen.update(cabin_alt, dt)
         stall = self.stall_warning.update()
         gpws = self.gpws.update()
+        overspeed = self.overspeed.update()
         fuel = fuel_data['total_lbs']
         flap = self.fdm.get_property_value('fcs/flap-pos-norm')
         gear = self.fdm.get_property_value('gear/gear-pos-norm')
@@ -627,6 +664,7 @@ class A320IFRSim:
             'oxygen_level': oxygen,
             'stall_warning': stall,
             'gpws_warning': gpws,
+            'overspeed_warning': overspeed,
         }
 
     def run(self, steps=600):
@@ -648,7 +686,8 @@ class A320IFRSim:
                     f"oxy={data['oxygen_level']:.2f} "
                     f"ice={data['ice_accum']:.2f} {'ON' if data['anti_ice_on'] else 'OFF'} "
                     f"stall={'YES' if data['stall_warning'] else 'NO'} "
-                    f"gpws={'YES' if data['gpws_warning'] else 'NO'}"
+                    f"gpws={'YES' if data['gpws_warning'] else 'NO'} "
+                    f"os={'YES' if data['overspeed_warning'] else 'NO'}"
                 )
             time.sleep(self.fdm.get_delta_t())
 

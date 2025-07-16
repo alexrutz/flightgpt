@@ -23,7 +23,9 @@ the target is nearly reached. The fuel system now includes an automatic
 crossfeed to balance the tanks and engine spool dynamics respond quicker when
 large throttle changes are commanded.
 An automatic autothrottle system now maintains the commanded airspeed for
-more realistic power management.
+more realistic power management. The latest build adds an overspeed warning
+with automatic speedbrake deployment and introduces random hydraulic pump
+failures for additional system depth.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
