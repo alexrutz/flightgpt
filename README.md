@@ -11,7 +11,9 @@ and throttle commands with a short spool lag for more realistic behaviour.
 A basic hydraulic model now limits flap and gear motion when pressure is low
 and prints the current pressure for reference. A tiny electrical system with a
 battery and generator now powers the autopilot and hydraulics, so running out
-of charge disables the servos.
+of charge disables the servos. A small wind model introduces variable crosswind
+gusts and the pressurization system tracks cabin altitude for additional
+realism.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
