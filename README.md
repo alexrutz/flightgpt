@@ -2,11 +2,12 @@
 
 Simple command line A320 flight simulator for instrument flying. The
 simulator uses the [JSBSim](https://github.com/JSBSim-Team/jsbsim) flight
-dynamics engine and now features a tiny autopilot with PID controllers for
-heading, altitude and speed. Engines are started automatically and the
-remaining fuel is displayed as the flight progresses. No graphics are
-provided – the goal is to use external hardware like LED displays or buttons
-for cockpit interaction.
+dynamics engine and now features a lightweight autopilot with PID controllers
+for heading, altitude and speed.  Basic automatic flap and gear scheduling as
+well as a yaw damper add a little system depth. Engines are started
+automatically and the remaining fuel is displayed as the flight progresses.
+No graphics are provided – the goal is to use external hardware like LED
+displays or buttons for cockpit interaction.
 
 ## Quick start
 
