@@ -17,7 +17,9 @@ adds vertical gusts and the pressurization system tracks cabin altitude for
 additional realism. A basic anti-ice system now reacts to icing conditions
 based on temperature and precipitation, degrading engine performance when ice
 builds up. The latest update introduces a stall warning and ground proximity
-warning system for more realistic aircraft handling cues.
+warning system for more realistic aircraft handling cues. A small update adds a
+simple altitude capture mode that uses a constant climb or descent rate until
+the target is nearly reached.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
