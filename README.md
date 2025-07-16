@@ -28,6 +28,8 @@ with automatic speedbrake deployment and introduces random hydraulic pump
 failures for additional system depth.
 A new bleed air model now ties engine and APU performance to cabin
 pressurization and anti-ice efficiency for greater realism.
+Engines now start using bleed air from the APU and take a few seconds to
+reach idle for more authentic startup behaviour.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
