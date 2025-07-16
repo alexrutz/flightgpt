@@ -304,6 +304,34 @@ class BleedAirSystem:
         return self.pressure
 
 
+class EngineStartSystem:
+    """Start the engines using bleed air with a short delay."""
+
+    def __init__(self, fdm, bleed, start_time=8.0):
+        self.fdm = fdm
+        self.bleed = bleed
+        self.start_time = start_time
+        self.timer = 0.0
+        self.state = "stopped"
+
+    def request_start(self) -> None:
+        if self.state == "stopped":
+            self.state = "starting"
+            self.timer = 0.0
+            self.fdm["propulsion/engine/set-running"] = 0
+            self.fdm["propulsion/engine[1]/set-running"] = 0
+
+    def update(self, dt: float) -> bool:
+        if self.state == "starting":
+            if self.bleed.pressure > 0.3:
+                self.timer += dt
+            if self.timer >= self.start_time:
+                self.fdm["propulsion/engine/set-running"] = 1
+                self.fdm["propulsion/engine[1]/set-running"] = 1
+                self.state = "running"
+        return self.state == "running"
+
+
 class Environment:
     """Wind model with simple lateral and vertical gusts."""
 
@@ -608,6 +636,7 @@ class A320IFRSim:
         self.electrics = ElectricSystem()
         self.fuel = FuelSystem(self.fdm, self.engine, self.electrics)
         self.bleed = BleedAirSystem(self.engine, self.electrics)
+        self.starter = EngineStartSystem(self.fdm, self.bleed)
         self.environment = Environment(self.fdm)
         self.anti_ice = AntiIceSystem(self.environment, self.engine, self.bleed)
         self.pressurization = PressurizationSystem(self.fdm, self.bleed)
@@ -638,12 +667,16 @@ class A320IFRSim:
         f['ic/long_gc-deg'] = -122.0
         f['ic/lat_gc-deg'] = 37.615
         f['ic/weight-lbs'] = 130000
+        f['propulsion/engine/set-running'] = 0
+        f['propulsion/engine[1]/set-running'] = 0
         f.run_ic()
-        f['propulsion/set-running'] = 1
+        self.electrics.start_apu()
+        self.starter.request_start()
 
     def step(self):
         dt = self.fdm.get_delta_t()
         self.environment.update(dt)
+        self.starter.update(dt)
         (
             alt,
             speed,
