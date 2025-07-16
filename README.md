@@ -14,7 +14,9 @@ extended with a small APU that automatically starts when the battery runs low
 and supplements the engine-driven generator. Control surface authority is now
 scaled with hydraulic pressure for more realistic failures. The wind model
 adds vertical gusts and the pressurization system tracks cabin altitude for
-additional realism.
+additional realism. A basic anti-ice system now reacts to icing conditions
+based on temperature and precipitation, degrading engine performance when ice
+builds up.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
