@@ -333,7 +333,19 @@ class GroundProximityWarningSystem:
 class Autopilot:
     """Heading, altitude and speed hold with basic system automation."""
 
-    def __init__(self, fdm, dt, engine, systems, electrics, environment, anti_ice):
+    def __init__(
+        self,
+        fdm,
+        dt,
+        engine,
+        systems,
+        electrics,
+        environment,
+        anti_ice,
+        capture_window=200.0,
+        climb_vs_fpm=1500.0,
+        descent_vs_fpm=-1500.0,
+    ):
         self.fdm = fdm
         self.dt = dt
         self.engine = engine
@@ -351,14 +363,24 @@ class Autopilot:
         self.hdg_pid = PIDController(0.02)
         self.spd_pid = PIDController(0.01)
         self.yaw_pid = PIDController(0.1)
+        self.vs_target_fpm = 0.0
+        self.capture_window = capture_window
+        self.climb_vs_fpm = climb_vs_fpm
+        self.descent_vs_fpm = descent_vs_fpm
 
-    def set_targets(self, altitude=None, heading=None, speed=None):
+    def set_targets(self, altitude=None, heading=None, speed=None, vs=None):
         if altitude is not None:
+            if altitude != self.altitude:
+                self.vs_target_fpm = (
+                    self.climb_vs_fpm if altitude > self.altitude else self.descent_vs_fpm
+                )
             self.altitude = altitude
         if heading is not None:
             self.heading = heading
         if speed is not None:
             self.speed = speed
+        if vs is not None:
+            self.vs_target_fpm = vs
 
     def _manage_systems(self, alt, speed):
         """Very naive flap and gear scheduling for a bit of system depth."""
@@ -394,9 +416,13 @@ class Autopilot:
 
         powered = self.electrics.is_powered()
 
-        # Altitude hold -> vertical speed target (ft/min)
+        # Altitude capture logic with a constant VS until near target
         alt_error = self.altitude - alt
-        vs_target_fpm = self.alt_pid.update(alt_error, self.dt) * 60.0
+        if abs(alt_error) > self.capture_window:
+            vs_target_fpm = self.vs_target_fpm
+        else:
+            vs_target_fpm = self.alt_pid.update(alt_error, self.dt) * 60.0
+            self.vs_target_fpm = vs_target_fpm
         vs_target_fpm = max(min(vs_target_fpm, 3000.0), -3000.0)
         vs_error = vs_target_fpm / 60.0 - vs
         pitch_cmd = max(min(self.vs_pid.update(vs_error, self.dt), 0.5), -0.5)
@@ -464,7 +490,13 @@ class A320IFRSim:
         self.stall_warning = StallWarningSystem(self.fdm)
         self.gpws = GroundProximityWarningSystem(self.fdm)
         self.autopilot = Autopilot(
-            self.fdm, dt, self.engine, self.systems, self.electrics, self.environment, self.anti_ice
+            self.fdm,
+            dt,
+            self.engine,
+            self.systems,
+            self.electrics,
+            self.environment,
+            self.anti_ice,
         )
         self.init_conditions()
         self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
