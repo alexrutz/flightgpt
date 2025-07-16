@@ -119,6 +119,28 @@ class HydraulicSystem:
         return self.pressure
 
 
+class BrakeSystem:
+    """Very small wheel brake model with heat buildup."""
+
+    def __init__(self, heat_rate=0.3, cool_rate=0.05):
+        self.heat = 0.0
+        self.heat_rate = heat_rate
+        self.cool_rate = cool_rate
+        self.command = 0.0
+
+    def set_command(self, cmd: float) -> None:
+        self.command = max(0.0, min(cmd, 1.0))
+
+    def update(self, on_ground: bool, dt: float) -> tuple[float, float]:
+        if not on_ground:
+            self.command = 0.0
+        self.heat += self.heat_rate * self.command * dt
+        self.heat -= self.cool_rate * dt
+        self.heat = max(0.0, min(self.heat, 1.0))
+        efficiency = 1.0 - 0.5 * self.heat
+        return efficiency, self.heat
+
+
 class SystemManager:
     """Handles slow actuation of gear, flaps and speedbrake with hydraulics."""
 
@@ -571,6 +593,7 @@ class Autopilot:
         electrics,
         environment,
         anti_ice,
+        brakes=None,
         nav=None,
         capture_window=200.0,
         climb_vs_fpm=1500.0,
@@ -583,6 +606,7 @@ class Autopilot:
         self.electrics = electrics
         self.environment = environment
         self.anti_ice = anti_ice
+        self.brakes = brakes
         self.nav = nav
         self.autothrottle = Autothrottle(fdm, engine)
         self.altitude = 0.0
@@ -614,7 +638,7 @@ class Autopilot:
         if vs is not None:
             self.vs_target_fpm = vs
 
-    def _manage_systems(self, alt, speed):
+    def _manage_systems(self, alt, speed, on_ground):
         """Very naive flap, gear and speedbrake scheduling."""
         # Landing gear
         gear_cmd = 1.0 if alt < 1500 and speed < 180 else 0.0
@@ -640,6 +664,12 @@ class Autopilot:
             speedbrake = 0.0
         self.systems.set_targets(gear=gear_cmd, flap=flap, speedbrake=speedbrake)
 
+        if self.brakes is not None:
+            if on_ground and speed > 30:
+                self.brakes.set_command(min((speed - 30) / 40.0, 1.0))
+            else:
+                self.brakes.set_command(0.0)
+
         # Auto anti-ice when icing conditions are detected
         icing = self.environment.is_icing()
         self.anti_ice.set_active(icing)
@@ -659,8 +689,13 @@ class Autopilot:
             if nav_alt is not None:
                 self.altitude = nav_alt
 
-        self._manage_systems(alt, speed)
+        agl = f.get_property_value('position/h-agl-ft')
+        on_ground = agl < 5.0
+        self._manage_systems(alt, speed, on_ground)
         pressure, demand = self.systems.update(self.dt)
+        brake_temp = 0.0
+        if self.brakes is not None:
+            _, brake_temp = self.brakes.update(on_ground, self.dt)
 
         powered = self.electrics.is_powered()
 
@@ -710,6 +745,7 @@ class Autopilot:
             active,
             ice,
             nav_dist,
+            brake_temp,
         )
 
 class A320IFRSim:
@@ -729,6 +765,7 @@ class A320IFRSim:
         self.bleed = BleedAirSystem(self.engine, self.electrics)
         self.starter = EngineStartSystem(self.fdm, self.bleed, self.engine)
         self.environment = Environment(self.fdm)
+        self.brakes = BrakeSystem()
         self.anti_ice = AntiIceSystem(
             self.environment, self.engine, self.bleed, failure_chance=1e-4
         )
@@ -753,6 +790,7 @@ class A320IFRSim:
             self.electrics,
             self.environment,
             self.anti_ice,
+            self.brakes,
             self.nav,
         )
         self.init_conditions()
@@ -794,6 +832,7 @@ class A320IFRSim:
             anti_ice_on,
             ice_accum,
             nav_dist,
+            brake_temp,
         ) = self.autopilot.update()
         elec = self.electrics.update(n1 > 0.5, hyd_demand + 0.1, dt)
         cabin_alt, cabin_diff, bleed_press = self.pressurization.update(dt)
@@ -835,6 +874,7 @@ class A320IFRSim:
             'gpws_warning': gpws,
             'overspeed_warning': overspeed,
             'nav_dist_nm': nav_dist,
+            'brake_temp': brake_temp,
         }
 
     def run(self, steps=600):
@@ -859,7 +899,8 @@ class A320IFRSim:
                     f"stall={'YES' if data['stall_warning'] else 'NO'} "
                     f"gpws={'YES' if data['gpws_warning'] else 'NO'} "
                     f"os={'YES' if data['overspeed_warning'] else 'NO'} "
-                    f"d2wp={data['nav_dist_nm']:.1f}nm"
+                    f"d2wp={data['nav_dist_nm']:.1f}nm "
+                    f"brk={data['brake_temp']:.2f}"
                 )
             time.sleep(self.fdm.get_delta_t())
 
