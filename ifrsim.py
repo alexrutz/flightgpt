@@ -134,18 +134,50 @@ class FuelSystem:
 
 
 class ElectricSystem:
-    """Very small electrical system with a battery and generator."""
+    """Electrical system with battery, generator and a simple APU."""
 
-    def __init__(self, charge_rate=0.2, discharge_rate=0.05):
+    def __init__(
+        self,
+        charge_rate=0.2,
+        discharge_rate=0.05,
+        apu_charge_rate=0.1,
+        apu_start_time=5.0,
+    ):
         self.charge = 1.0
         self.charge_rate = charge_rate
         self.discharge_rate = discharge_rate
+        self.apu_charge_rate = apu_charge_rate
+        self.apu_start_time = apu_start_time
+        self.apu_running = False
+        self.apu_timer = 0.0
+
+    def start_apu(self) -> None:
+        if not self.apu_running:
+            self.apu_running = True
+            self.apu_timer = 0.0
+
+    def stop_apu(self) -> None:
+        self.apu_running = False
 
     def update(self, generator_on: bool, demand: float, dt: float) -> float:
         if generator_on:
             self.charge += self.charge_rate * dt
+        elif self.apu_running:
+            # Allow a small delay before the APU provides power
+            self.apu_timer += dt
+            if self.apu_timer >= self.apu_start_time:
+                self.charge += self.apu_charge_rate * dt
+
         self.charge -= demand * self.discharge_rate * dt
         self.charge = max(0.0, min(self.charge, 1.0))
+
+        # Automatically start the APU if the battery is low and the
+        # generator is not running. Stop it once the battery has recovered.
+        if self.charge < 0.3 and not generator_on:
+            self.start_apu()
+        if self.charge > 0.95 and self.apu_running and generator_on:
+            self.stop_apu()
+
         return self.charge
 
     def is_powered(self) -> bool:
@@ -153,11 +185,12 @@ class ElectricSystem:
 
 
 class Environment:
-    """Very small wind model for added realism."""
+    """Wind model with simple lateral and vertical gusts."""
 
-    def __init__(self, fdm, gust_strength=5.0):
+    def __init__(self, fdm, gust_strength=5.0, vertical_strength=2.0):
         self.fdm = fdm
         self.gust_strength = gust_strength
+        self.vertical_strength = vertical_strength
         self.t = 0.0
 
     def update(self, dt):
@@ -167,6 +200,11 @@ class Environment:
         gust += random.uniform(-self.gust_strength, self.gust_strength) * 0.1
         self.fdm['atmosphere/wind-north-fps'] = 0.0
         self.fdm['atmosphere/wind-east-fps'] = base + gust
+
+        vert_base = 2.0 * math.sin(self.t / 40.0)
+        vert_gust = self.vertical_strength * math.sin(self.t * 12.0)
+        vert_gust += random.uniform(-self.vertical_strength, self.vertical_strength) * 0.1
+        self.fdm['atmosphere/wind-down-fps'] = vert_base + vert_gust
 
 
 class PressurizationSystem:
@@ -245,6 +283,9 @@ class Autopilot:
         speed = f.get_property_value('velocities/vt-fps') / 1.68781
         vs = f.get_property_value('velocities/h-dot-fps')  # ft/s
 
+        self._manage_systems(alt, speed)
+        pressure, demand = self.systems.update(self.dt)
+
         powered = self.electrics.is_powered()
 
         # Altitude hold -> vertical speed target (ft/min)
@@ -254,21 +295,21 @@ class Autopilot:
         vs_error = vs_target_fpm / 60.0 - vs
         pitch_cmd = max(min(self.vs_pid.update(vs_error, self.dt), 0.5), -0.5)
         if powered:
-            f['fcs/elevator-cmd-norm'] = pitch_cmd
+            f['fcs/elevator-cmd-norm'] = pitch_cmd * pressure
         else:
             f['fcs/elevator-cmd-norm'] = 0.0
 
         heading_error = (self.heading - psi + 180) % 360 - 180
         aileron_cmd = max(min(self.hdg_pid.update(heading_error, self.dt), 0.3), -0.3)
         if powered:
-            f['fcs/aileron-cmd-norm'] = aileron_cmd
+            f['fcs/aileron-cmd-norm'] = aileron_cmd * pressure
         else:
             f['fcs/aileron-cmd-norm'] = 0.0
 
         slip = f.get_property_value('aero/beta-rad')
         rudder_cmd = max(min(self.yaw_pid.update(-slip, self.dt), 0.3), -0.3)
         if powered:
-            f['fcs/rudder-cmd-norm'] = rudder_cmd
+            f['fcs/rudder-cmd-norm'] = rudder_cmd * pressure
         else:
             f['fcs/rudder-cmd-norm'] = 0.0
 
@@ -279,9 +320,6 @@ class Autopilot:
         else:
             self.engine.set_target(0.0)
         self.engine.update(self.dt)
-
-        self._manage_systems(alt, speed)
-        pressure, demand = self.systems.update(self.dt)
 
         n1 = self.engine.n1()
         return (
