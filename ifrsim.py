@@ -37,9 +37,11 @@ class Engine:
         self.target = max(0.0, min(throttle, 1.0))
 
     def update(self, dt: float) -> None:
-        """Update engine throttle command with a simple first order lag."""
+        """Update engine throttle command with a simple non-linear lag."""
         diff = self.target - self.throttle
-        max_delta = self.spool_rate * dt
+        # Allow faster spool when the commanded change is large
+        rate = self.spool_rate * (1.0 + 2.0 * abs(diff))
+        max_delta = rate * dt
         diff = max(min(diff, max_delta), -max_delta)
         self.throttle += diff
         # Apply command to both engines with efficiency factor
@@ -109,13 +111,29 @@ class SystemManager:
 
 
 class FuelSystem:
-    """Track fuel quantity and burn rate for a simple two tank setup."""
+    """Track fuel quantity and burn rate for a simple two tank setup.
 
-    def __init__(self, fdm, engine=None, electrics=None, apu_flow_pph=150.0):
+    A very small crossfeed logic equalises the tanks when the imbalance
+    exceeds a threshold. Crossfeed is automatic and stops once the tanks
+    are nearly balanced.
+    """
+
+    def __init__(
+        self,
+        fdm,
+        engine=None,
+        electrics=None,
+        apu_flow_pph=150.0,
+        crossfeed_rate_pph=1200.0,
+        balance_threshold_lbs=1000.0,
+    ):
         self.fdm = fdm
         self.engine = engine
         self.electrics = electrics
         self.apu_flow_pph = apu_flow_pph
+        self.crossfeed_rate_pph = crossfeed_rate_pph
+        self.balance_threshold_lbs = balance_threshold_lbs
+        self.crossfeed_on = False
         self.prev_used_0 = fdm.get_property_value('propulsion/engine/fuel-used-lbs')
         self.prev_used_1 = fdm.get_property_value('propulsion/engine[1]/fuel-used-lbs')
 
@@ -134,6 +152,26 @@ class FuelSystem:
         left = self.fdm.get_property_value('propulsion/tank/contents-lbs')
         right = self.fdm.get_property_value('propulsion/tank[1]/contents-lbs')
 
+        # Automatic crossfeed to keep tanks balanced
+        diff = left - right
+        if not self.crossfeed_on and abs(diff) > self.balance_threshold_lbs:
+            self.crossfeed_on = True
+        if self.crossfeed_on:
+            xfeed_amt = min(
+                abs(diff),
+                self.crossfeed_rate_pph / 3600.0 * dt,
+            )
+            if diff > 0:
+                left -= xfeed_amt
+                right += xfeed_amt
+            else:
+                left += xfeed_amt
+                right -= xfeed_amt
+            if abs(left - right) < self.balance_threshold_lbs * 0.2:
+                self.crossfeed_on = False
+            self.fdm['propulsion/tank/contents-lbs'] = left
+            self.fdm['propulsion/tank[1]/contents-lbs'] = right
+
         apu_flow = 0.0
         if self.electrics and self.electrics.apu_running:
             apu_flow = self.apu_flow_pph
@@ -149,6 +187,7 @@ class FuelSystem:
             'flow0_pph': flow_0,
             'flow1_pph': flow_1,
             'apu_flow_pph': apu_flow,
+            'crossfeed': self.crossfeed_on,
         }
 
 
@@ -563,6 +602,7 @@ class A320IFRSim:
             'fuel_flow_lbs_hr_eng1': fuel_data['flow0_pph'],
             'fuel_flow_lbs_hr_eng2': fuel_data['flow1_pph'],
             'apu_flow_lbs_hr': fuel_data['apu_flow_pph'],
+            'crossfeed': fuel_data['crossfeed'],
             'oxygen_level': oxygen,
             'stall_warning': stall,
             'gpws_warning': gpws,
@@ -583,6 +623,7 @@ class A320IFRSim:
                     f"cabin={data['cabin_altitude_ft']:.0f}ft "
                     f"ff={data['fuel_flow_lbs_hr_eng1']:.0f}/{data['fuel_flow_lbs_hr_eng2']:.0f} pph "
                     f"apu={data['apu_flow_lbs_hr']:.0f}pph "
+                    f"xfeed={'ON' if data['crossfeed'] else 'OFF'} "
                     f"oxy={data['oxygen_level']:.2f} "
                     f"ice={data['ice_accum']:.2f} {'ON' if data['anti_ice_on'] else 'OFF'} "
                     f"stall={'YES' if data['stall_warning'] else 'NO'} "
