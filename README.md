@@ -6,6 +6,8 @@ dynamics engine and now features a lightweight autopilot with PID controllers
 for heading, altitude and speed.  Basic automatic flap and gear scheduling as
 well as a yaw damper add a little system depth. Engines are started
 automatically and the remaining fuel is displayed as the flight progresses.
+Recent updates include a simple fuel system that reports per-engine fuel flow
+and throttle commands with a short spool lag for more realistic behaviour.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
