@@ -111,9 +111,11 @@ class SystemManager:
 class FuelSystem:
     """Track fuel quantity and burn rate for a simple two tank setup."""
 
-    def __init__(self, fdm, engine=None):
+    def __init__(self, fdm, engine=None, electrics=None, apu_flow_pph=150.0):
         self.fdm = fdm
         self.engine = engine
+        self.electrics = electrics
+        self.apu_flow_pph = apu_flow_pph
         self.prev_used_0 = fdm.get_property_value('propulsion/engine/fuel-used-lbs')
         self.prev_used_1 = fdm.get_property_value('propulsion/engine[1]/fuel-used-lbs')
 
@@ -128,15 +130,25 @@ class FuelSystem:
             flow_1 *= 1.0 + self.engine.extra_fuel_factor
         self.prev_used_0 = used_0
         self.prev_used_1 = used_1
+
         left = self.fdm.get_property_value('propulsion/tank/contents-lbs')
         right = self.fdm.get_property_value('propulsion/tank[1]/contents-lbs')
-        total = self.fdm.get_property_value('propulsion/total-fuel-lbs')
+
+        apu_flow = 0.0
+        if self.electrics and self.electrics.apu_running:
+            apu_flow = self.apu_flow_pph
+            burn = apu_flow / 3600.0 * dt
+            left = max(left - burn, 0.0)
+            self.fdm['propulsion/tank/contents-lbs'] = left
+
+        total = left + right
         return {
             'left_lbs': left,
             'right_lbs': right,
             'total_lbs': total,
             'flow0_pph': flow_0,
             'flow1_pph': flow_1,
+            'apu_flow_pph': apu_flow,
         }
 
 
@@ -274,6 +286,22 @@ class PressurizationSystem:
         return self.cabin_alt, diff
 
 
+class OxygenSystem:
+    """Monitor oxygen supply based on cabin altitude."""
+
+    def __init__(self, capacity=1.0, usage_rate=0.01, alt_threshold=10000.0):
+        self.level = capacity
+        self.usage_rate = usage_rate
+        self.alt_threshold = alt_threshold
+
+    def update(self, cabin_alt, dt):
+        if cabin_alt > self.alt_threshold:
+            excess = cabin_alt - self.alt_threshold
+            self.level -= self.usage_rate * (excess / 10000.0) * dt
+        self.level = max(0.0, min(self.level, 1.0))
+        return self.level
+
+
 class Autopilot:
     """Heading, altitude and speed hold with basic system automation."""
 
@@ -399,11 +427,12 @@ class A320IFRSim:
         self.target_speed = 250  # knots
         self.engine = Engine(self.fdm)
         self.systems = SystemManager(self.fdm)
-        self.fuel = FuelSystem(self.fdm, self.engine)
         self.electrics = ElectricSystem()
+        self.fuel = FuelSystem(self.fdm, self.engine, self.electrics)
         self.environment = Environment(self.fdm)
         self.anti_ice = AntiIceSystem(self.environment, self.engine)
         self.pressurization = PressurizationSystem(self.fdm)
+        self.oxygen = OxygenSystem()
         self.autopilot = Autopilot(
             self.fdm, dt, self.engine, self.systems, self.electrics, self.environment, self.anti_ice
         )
@@ -443,6 +472,7 @@ class A320IFRSim:
         elec = self.electrics.update(n1 > 0.5, hyd_demand + 0.1, dt)
         cabin_alt, cabin_diff = self.pressurization.update(dt)
         fuel_data = self.fuel.update()
+        oxygen = self.oxygen.update(cabin_alt, dt)
         fuel = fuel_data['total_lbs']
         flap = self.fdm.get_property_value('fcs/flap-pos-norm')
         gear = self.fdm.get_property_value('gear/gear-pos-norm')
@@ -468,6 +498,8 @@ class A320IFRSim:
             'fuel_lbs': fuel,
             'fuel_flow_lbs_hr_eng1': fuel_data['flow0_pph'],
             'fuel_flow_lbs_hr_eng2': fuel_data['flow1_pph'],
+            'apu_flow_lbs_hr': fuel_data['apu_flow_pph'],
+            'oxygen_level': oxygen,
         }
 
     def run(self, steps=600):
@@ -484,6 +516,8 @@ class A320IFRSim:
                     f"fuel={data['fuel_lbs']:.0f}lb "
                     f"cabin={data['cabin_altitude_ft']:.0f}ft "
                     f"ff={data['fuel_flow_lbs_hr_eng1']:.0f}/{data['fuel_flow_lbs_hr_eng2']:.0f} pph "
+                    f"apu={data['apu_flow_lbs_hr']:.0f}pph "
+                    f"oxy={data['oxygen_level']:.2f} "
                     f"ice={data['ice_accum']:.2f} {'ON' if data['anti_ice_on'] else 'OFF'}"
                 )
             time.sleep(self.fdm.get_delta_t())
