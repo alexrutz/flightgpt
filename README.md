@@ -16,7 +16,8 @@ scaled with hydraulic pressure for more realistic failures. The wind model
 adds vertical gusts and the pressurization system tracks cabin altitude for
 additional realism. A basic anti-ice system now reacts to icing conditions
 based on temperature and precipitation, degrading engine performance when ice
-builds up.
+builds up. The latest update introduces a stall warning and ground proximity
+warning system for more realistic aircraft handling cues.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 

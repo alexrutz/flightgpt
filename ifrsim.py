@@ -302,6 +302,34 @@ class OxygenSystem:
         return self.level
 
 
+class StallWarningSystem:
+    """Very simple stall warning based on AoA and airspeed."""
+
+    def __init__(self, fdm, alpha_deg=12.0, speed_kt=120.0):
+        self.fdm = fdm
+        self.alpha_thresh = math.radians(alpha_deg)
+        self.speed_thresh = speed_kt
+
+    def update(self):
+        alpha = self.fdm.get_property_value('aero/alpha-rad')
+        speed = self.fdm.get_property_value('velocities/vt-fps') / 1.68781
+        return alpha > self.alpha_thresh or speed < self.speed_thresh
+
+
+class GroundProximityWarningSystem:
+    """Warn when approaching the ground with a high descent rate."""
+
+    def __init__(self, fdm, alt_ft=200.0, sink_rate_fpm=1500.0):
+        self.fdm = fdm
+        self.alt_thresh = alt_ft
+        self.sink_thresh = -abs(sink_rate_fpm)
+
+    def update(self):
+        agl = self.fdm.get_property_value('position/h-agl-ft')
+        vs_fpm = self.fdm.get_property_value('velocities/h-dot-fps') * 60.0
+        return agl < self.alt_thresh and vs_fpm < self.sink_thresh
+
+
 class Autopilot:
     """Heading, altitude and speed hold with basic system automation."""
 
@@ -433,6 +461,8 @@ class A320IFRSim:
         self.anti_ice = AntiIceSystem(self.environment, self.engine)
         self.pressurization = PressurizationSystem(self.fdm)
         self.oxygen = OxygenSystem()
+        self.stall_warning = StallWarningSystem(self.fdm)
+        self.gpws = GroundProximityWarningSystem(self.fdm)
         self.autopilot = Autopilot(
             self.fdm, dt, self.engine, self.systems, self.electrics, self.environment, self.anti_ice
         )
@@ -473,6 +503,8 @@ class A320IFRSim:
         cabin_alt, cabin_diff = self.pressurization.update(dt)
         fuel_data = self.fuel.update()
         oxygen = self.oxygen.update(cabin_alt, dt)
+        stall = self.stall_warning.update()
+        gpws = self.gpws.update()
         fuel = fuel_data['total_lbs']
         flap = self.fdm.get_property_value('fcs/flap-pos-norm')
         gear = self.fdm.get_property_value('gear/gear-pos-norm')
@@ -500,6 +532,8 @@ class A320IFRSim:
             'fuel_flow_lbs_hr_eng2': fuel_data['flow1_pph'],
             'apu_flow_lbs_hr': fuel_data['apu_flow_pph'],
             'oxygen_level': oxygen,
+            'stall_warning': stall,
+            'gpws_warning': gpws,
         }
 
     def run(self, steps=600):
@@ -518,7 +552,9 @@ class A320IFRSim:
                     f"ff={data['fuel_flow_lbs_hr_eng1']:.0f}/{data['fuel_flow_lbs_hr_eng2']:.0f} pph "
                     f"apu={data['apu_flow_lbs_hr']:.0f}pph "
                     f"oxy={data['oxygen_level']:.2f} "
-                    f"ice={data['ice_accum']:.2f} {'ON' if data['anti_ice_on'] else 'OFF'}"
+                    f"ice={data['ice_accum']:.2f} {'ON' if data['anti_ice_on'] else 'OFF'} "
+                    f"stall={'YES' if data['stall_warning'] else 'NO'} "
+                    f"gpws={'YES' if data['gpws_warning'] else 'NO'}"
                 )
             time.sleep(self.fdm.get_delta_t())
 
