@@ -1,5 +1,7 @@
 import jsbsim
 import time
+import math
+import random
 
 
 class PIDController:
@@ -150,6 +152,46 @@ class ElectricSystem:
         return self.charge > 0.05
 
 
+class Environment:
+    """Very small wind model for added realism."""
+
+    def __init__(self, fdm, gust_strength=5.0):
+        self.fdm = fdm
+        self.gust_strength = gust_strength
+        self.t = 0.0
+
+    def update(self, dt):
+        self.t += dt
+        base = 10.0 * math.sin(self.t / 30.0)
+        gust = self.gust_strength * math.sin(self.t * 10.0)
+        gust += random.uniform(-self.gust_strength, self.gust_strength) * 0.1
+        self.fdm['atmosphere/wind-north-fps'] = 0.0
+        self.fdm['atmosphere/wind-east-fps'] = base + gust
+
+
+class PressurizationSystem:
+    """Track cabin altitude based on a simple pressurization model."""
+
+    def __init__(self, fdm, target_diff=8.0, leak_rate=0.001):
+        self.fdm = fdm
+        self.target_diff = target_diff
+        self.leak_rate = leak_rate
+        self.cabin_alt = fdm.get_property_value('position/h-sl-ft')
+
+    def _pressure_at_alt(self, alt):
+        return 14.7 * math.exp(-alt / 20000.0)
+
+    def update(self, dt):
+        alt = self.fdm.get_property_value('position/h-sl-ft')
+        amb = self._pressure_at_alt(alt)
+        cab = self._pressure_at_alt(self.cabin_alt)
+        diff = cab - amb
+        cab += (self.target_diff - diff) * 0.1 * dt
+        self.cabin_alt = -20000.0 * math.log(max(cab, 0.01) / 14.7)
+        self.cabin_alt += (alt - self.cabin_alt) * self.leak_rate * dt
+        return self.cabin_alt, diff
+
+
 class Autopilot:
     """Heading, altitude and speed hold with basic system automation."""
 
@@ -268,6 +310,8 @@ class A320IFRSim:
         self.systems = SystemManager(self.fdm)
         self.fuel = FuelSystem(self.fdm)
         self.electrics = ElectricSystem()
+        self.environment = Environment(self.fdm)
+        self.pressurization = PressurizationSystem(self.fdm)
         self.autopilot = Autopilot(self.fdm, dt, self.engine, self.systems, self.electrics)
         self.init_conditions()
         self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
@@ -287,6 +331,8 @@ class A320IFRSim:
         f['propulsion/set-running'] = 1
 
     def step(self):
+        dt = self.fdm.get_delta_t()
+        self.environment.update(dt)
         (
             alt,
             speed,
@@ -298,7 +344,8 @@ class A320IFRSim:
             pressure,
             hyd_demand,
         ) = self.autopilot.update()
-        elec = self.electrics.update(n1 > 0.5, hyd_demand + 0.1, self.fdm.get_delta_t())
+        elec = self.electrics.update(n1 > 0.5, hyd_demand + 0.1, dt)
+        cabin_alt, cabin_diff = self.pressurization.update(dt)
         fuel_data = self.fuel.update()
         fuel = fuel_data['total_lbs']
         flap = self.fdm.get_property_value('fcs/flap-pos-norm')
@@ -318,6 +365,8 @@ class A320IFRSim:
             'gear': gear,
             'hyd_press': pressure,
             'elec_charge': elec,
+            'cabin_altitude_ft': cabin_alt,
+            'cabin_diff_psi': cabin_diff,
             'fuel_lbs': fuel,
             'fuel_flow_lbs_hr_eng1': fuel_data['flow0_pph'],
             'fuel_flow_lbs_hr_eng2': fuel_data['flow1_pph'],
@@ -335,6 +384,7 @@ class A320IFRSim:
                     f"n1={ (data['n1']*100 if data['n1']<=2 else data['n1']):.0f}% "
                     f"hyd={data['hyd_press']:.2f} elec={data['elec_charge']:.2f} "
                     f"fuel={data['fuel_lbs']:.0f}lb "
+                    f"cabin={data['cabin_altitude_ft']:.0f}ft "
                     f"ff={data['fuel_flow_lbs_hr_eng1']:.0f}/{data['fuel_flow_lbs_hr_eng2']:.0f} pph"
                 )
             time.sleep(self.fdm.get_delta_t())
