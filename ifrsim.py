@@ -47,8 +47,26 @@ class Engine:
         return self.fdm.get_property_value('propulsion/engine/n1')
 
 
+class HydraulicSystem:
+    """Very small hydraulic system model."""
+
+    def __init__(self, pump_rate=0.3, usage_factor=0.5, leak_rate=0.01):
+        self.pressure = 1.0
+        self.pump_rate = pump_rate
+        self.usage_factor = usage_factor
+        self.leak_rate = leak_rate
+        self.pump_on = True
+
+    def update(self, demand: float, dt: float) -> float:
+        if self.pump_on:
+            self.pressure += self.pump_rate * dt
+        self.pressure -= (self.leak_rate + demand * self.usage_factor) * dt
+        self.pressure = max(0.0, min(self.pressure, 1.0))
+        return self.pressure
+
+
 class SystemManager:
-    """Handles slow actuation of gear and flaps."""
+    """Handles slow actuation of gear and flaps with hydraulics."""
 
     def __init__(self, fdm, flap_rate=0.5, gear_rate=0.5):
         self.fdm = fdm
@@ -58,6 +76,7 @@ class SystemManager:
         self.gear = 0.0
         self.target_flap = 0.0
         self.target_gear = 0.0
+        self.hydraulics = HydraulicSystem()
 
     def set_targets(self, gear=None, flap=None):
         if gear is not None:
@@ -67,16 +86,21 @@ class SystemManager:
 
     def update(self, dt):
         d_flap = self.target_flap - self.flap
-        max_df = self.flap_rate * dt
+        d_gear = self.target_gear - self.gear
+        demand = abs(d_flap) + abs(d_gear)
+        pressure = self.hydraulics.update(demand, dt)
+
+        max_df = self.flap_rate * dt * pressure
         d_flap = max(min(d_flap, max_df), -max_df)
         self.flap += d_flap
         self.fdm['fcs/flap-cmd-norm'] = self.flap
 
-        d_gear = self.target_gear - self.gear
-        max_dg = self.gear_rate * dt
+        max_dg = self.gear_rate * dt * pressure
         d_gear = max(min(d_gear, max_dg), -max_dg)
         self.gear += d_gear
         self.fdm['gear/gear-cmd-norm'] = self.gear
+
+        return pressure
 
 
 class FuelSystem:
@@ -181,10 +205,19 @@ class Autopilot:
         self.engine.update(self.dt)
 
         self._manage_systems(alt, speed)
-        self.systems.update(self.dt)
+        pressure = self.systems.update(self.dt)
 
         n1 = self.engine.n1()
-        return alt, speed, psi, pitch_cmd, aileron_cmd, self.engine.throttle, n1
+        return (
+            alt,
+            speed,
+            psi,
+            pitch_cmd,
+            aileron_cmd,
+            self.engine.throttle,
+            n1,
+            pressure,
+        )
 
 class A320IFRSim:
     def __init__(self, root_dir='jsbsim-master', dt=0.02):
@@ -218,7 +251,16 @@ class A320IFRSim:
         f['propulsion/set-running'] = 1
 
     def step(self):
-        alt, speed, psi, pitch_cmd, aileron_cmd, throttle_cmd, n1 = self.autopilot.update()
+        (
+            alt,
+            speed,
+            psi,
+            pitch_cmd,
+            aileron_cmd,
+            throttle_cmd,
+            n1,
+            pressure,
+        ) = self.autopilot.update()
         fuel_data = self.fuel.update()
         fuel = fuel_data['total_lbs']
         flap = self.fdm.get_property_value('fcs/flap-pos-norm')
@@ -236,6 +278,7 @@ class A320IFRSim:
             'n1': n1,
             'flap': flap,
             'gear': gear,
+            'hyd_press': pressure,
             'fuel_lbs': fuel,
             'fuel_flow_lbs_hr_eng1': fuel_data['flow0_pph'],
             'fuel_flow_lbs_hr_eng2': fuel_data['flow1_pph'],
@@ -250,7 +293,8 @@ class A320IFRSim:
                     f"spd={data['speed_kt']:.1f}kt hdg={data['heading_deg']:.1f} "
                     f"vs={data['vs_fpm']:.0f}fpm flap={data['flap']:.2f} "
                     f"gear={data['gear']:.0f} thr={data['throttle_cmd']:.2f} "
-                    f"n1={ (data['n1']*100 if data['n1']<=2 else data['n1']):.0f}% fuel={data['fuel_lbs']:.0f}lb "
+                    f"n1={ (data['n1']*100 if data['n1']<=2 else data['n1']):.0f}% "
+                    f"hyd={data['hyd_press']:.2f} fuel={data['fuel_lbs']:.0f}lb "
                     f"ff={data['fuel_flow_lbs_hr_eng1']:.0f}/{data['fuel_flow_lbs_hr_eng2']:.0f} pph"
                 )
             time.sleep(self.fdm.get_delta_t())
