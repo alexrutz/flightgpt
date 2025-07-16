@@ -100,7 +100,7 @@ class SystemManager:
         self.gear += d_gear
         self.fdm['gear/gear-cmd-norm'] = self.gear
 
-        return pressure
+        return pressure, demand
 
 
 class FuelSystem:
@@ -131,14 +131,34 @@ class FuelSystem:
         }
 
 
+class ElectricSystem:
+    """Very small electrical system with a battery and generator."""
+
+    def __init__(self, charge_rate=0.2, discharge_rate=0.05):
+        self.charge = 1.0
+        self.charge_rate = charge_rate
+        self.discharge_rate = discharge_rate
+
+    def update(self, generator_on: bool, demand: float, dt: float) -> float:
+        if generator_on:
+            self.charge += self.charge_rate * dt
+        self.charge -= demand * self.discharge_rate * dt
+        self.charge = max(0.0, min(self.charge, 1.0))
+        return self.charge
+
+    def is_powered(self) -> bool:
+        return self.charge > 0.05
+
+
 class Autopilot:
     """Heading, altitude and speed hold with basic system automation."""
 
-    def __init__(self, fdm, dt, engine, systems):
+    def __init__(self, fdm, dt, engine, systems, electrics):
         self.fdm = fdm
         self.dt = dt
         self.engine = engine
         self.systems = systems
+        self.electrics = electrics
         self.altitude = 0.0
         self.heading = 0.0
         self.speed = 0.0
@@ -183,29 +203,43 @@ class Autopilot:
         speed = f.get_property_value('velocities/vt-fps') / 1.68781
         vs = f.get_property_value('velocities/h-dot-fps')  # ft/s
 
+        powered = self.electrics.is_powered()
+
         # Altitude hold -> vertical speed target (ft/min)
         alt_error = self.altitude - alt
         vs_target_fpm = self.alt_pid.update(alt_error, self.dt) * 60.0
         vs_target_fpm = max(min(vs_target_fpm, 3000.0), -3000.0)
         vs_error = vs_target_fpm / 60.0 - vs
         pitch_cmd = max(min(self.vs_pid.update(vs_error, self.dt), 0.5), -0.5)
-        f['fcs/elevator-cmd-norm'] = pitch_cmd
+        if powered:
+            f['fcs/elevator-cmd-norm'] = pitch_cmd
+        else:
+            f['fcs/elevator-cmd-norm'] = 0.0
 
         heading_error = (self.heading - psi + 180) % 360 - 180
         aileron_cmd = max(min(self.hdg_pid.update(heading_error, self.dt), 0.3), -0.3)
-        f['fcs/aileron-cmd-norm'] = aileron_cmd
+        if powered:
+            f['fcs/aileron-cmd-norm'] = aileron_cmd
+        else:
+            f['fcs/aileron-cmd-norm'] = 0.0
 
         slip = f.get_property_value('aero/beta-rad')
         rudder_cmd = max(min(self.yaw_pid.update(-slip, self.dt), 0.3), -0.3)
-        f['fcs/rudder-cmd-norm'] = rudder_cmd
+        if powered:
+            f['fcs/rudder-cmd-norm'] = rudder_cmd
+        else:
+            f['fcs/rudder-cmd-norm'] = 0.0
 
         speed_error = self.speed - speed
         throttle_cmd = max(min(self.spd_pid.update(speed_error, self.dt), 1.0), 0.0)
-        self.engine.set_target(throttle_cmd)
+        if powered:
+            self.engine.set_target(throttle_cmd)
+        else:
+            self.engine.set_target(0.0)
         self.engine.update(self.dt)
 
         self._manage_systems(alt, speed)
-        pressure = self.systems.update(self.dt)
+        pressure, demand = self.systems.update(self.dt)
 
         n1 = self.engine.n1()
         return (
@@ -217,6 +251,7 @@ class Autopilot:
             self.engine.throttle,
             n1,
             pressure,
+            demand,
         )
 
 class A320IFRSim:
@@ -232,7 +267,8 @@ class A320IFRSim:
         self.engine = Engine(self.fdm)
         self.systems = SystemManager(self.fdm)
         self.fuel = FuelSystem(self.fdm)
-        self.autopilot = Autopilot(self.fdm, dt, self.engine, self.systems)
+        self.electrics = ElectricSystem()
+        self.autopilot = Autopilot(self.fdm, dt, self.engine, self.systems, self.electrics)
         self.init_conditions()
         self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
 
@@ -260,7 +296,9 @@ class A320IFRSim:
             throttle_cmd,
             n1,
             pressure,
+            hyd_demand,
         ) = self.autopilot.update()
+        elec = self.electrics.update(n1 > 0.5, hyd_demand + 0.1, self.fdm.get_delta_t())
         fuel_data = self.fuel.update()
         fuel = fuel_data['total_lbs']
         flap = self.fdm.get_property_value('fcs/flap-pos-norm')
@@ -279,6 +317,7 @@ class A320IFRSim:
             'flap': flap,
             'gear': gear,
             'hyd_press': pressure,
+            'elec_charge': elec,
             'fuel_lbs': fuel,
             'fuel_flow_lbs_hr_eng1': fuel_data['flow0_pph'],
             'fuel_flow_lbs_hr_eng2': fuel_data['flow1_pph'],
@@ -294,7 +333,8 @@ class A320IFRSim:
                     f"vs={data['vs_fpm']:.0f}fpm flap={data['flap']:.2f} "
                     f"gear={data['gear']:.0f} thr={data['throttle_cmd']:.2f} "
                     f"n1={ (data['n1']*100 if data['n1']<=2 else data['n1']):.0f}% "
-                    f"hyd={data['hyd_press']:.2f} fuel={data['fuel_lbs']:.0f}lb "
+                    f"hyd={data['hyd_press']:.2f} elec={data['elec_charge']:.2f} "
+                    f"fuel={data['fuel_lbs']:.0f}lb "
                     f"ff={data['fuel_flow_lbs_hr_eng1']:.0f}/{data['fuel_flow_lbs_hr_eng2']:.0f} pph"
                 )
             time.sleep(self.fdm.get_delta_t())
