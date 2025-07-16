@@ -479,6 +479,47 @@ class OverspeedWarningSystem:
         return speed > self.limit
 
 
+class NavigationSystem:
+    """Very small waypoint-based navigation model."""
+
+    def __init__(self, fdm, waypoints=None):
+        self.fdm = fdm
+        self.waypoints = waypoints or []
+        self.index = 0
+
+    def add_waypoint(self, lat_deg, lon_deg, alt_ft=None):
+        """Append a new waypoint to the route."""
+        self.waypoints.append((lat_deg, lon_deg, alt_ft))
+
+    def _bearing_distance(self, lat1, lon1, lat2, lon2):
+        lat1 = math.radians(lat1)
+        lon1 = math.radians(lon1)
+        lat2 = math.radians(lat2)
+        lon2 = math.radians(lon2)
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        dist_nm = 3440.065 * c
+        y = math.sin(dlon) * math.cos(lat2)
+        x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+        bearing = (math.degrees(math.atan2(y, x)) + 360) % 360
+        return bearing, dist_nm
+
+    def update(self):
+        if not self.waypoints or self.index >= len(self.waypoints):
+            return None, None, None
+        lat = self.fdm.get_property_value('position/lat-gc-deg')
+        lon = self.fdm.get_property_value('position/long-gc-deg')
+        tgt_lat, tgt_lon, tgt_alt = self.waypoints[self.index]
+        bearing, dist = self._bearing_distance(lat, lon, tgt_lat, tgt_lon)
+        if dist < 0.3 and self.index < len(self.waypoints) - 1:
+            self.index += 1
+            tgt_lat, tgt_lon, tgt_alt = self.waypoints[self.index]
+            bearing, dist = self._bearing_distance(lat, lon, tgt_lat, tgt_lon)
+        return bearing, dist, tgt_alt
+
+
 class Autopilot:
     """Heading, altitude and speed hold with basic system automation."""
 
@@ -491,6 +532,7 @@ class Autopilot:
         electrics,
         environment,
         anti_ice,
+        nav=None,
         capture_window=200.0,
         climb_vs_fpm=1500.0,
         descent_vs_fpm=-1500.0,
@@ -502,6 +544,7 @@ class Autopilot:
         self.electrics = electrics
         self.environment = environment
         self.anti_ice = anti_ice
+        self.nav = nav
         self.autothrottle = Autothrottle(fdm, engine)
         self.altitude = 0.0
         self.heading = 0.0
@@ -569,6 +612,14 @@ class Autopilot:
         speed = f.get_property_value('velocities/vt-fps') / 1.68781
         vs = f.get_property_value('velocities/h-dot-fps')  # ft/s
 
+        nav_dist = None
+        if self.nav is not None:
+            nav_bearing, nav_dist, nav_alt = self.nav.update()
+            if nav_bearing is not None:
+                self.heading = nav_bearing
+            if nav_alt is not None:
+                self.altitude = nav_alt
+
         self._manage_systems(alt, speed)
         pressure, demand = self.systems.update(self.dt)
 
@@ -619,6 +670,7 @@ class Autopilot:
             demand,
             active,
             ice,
+            nav_dist,
         )
 
 class A320IFRSim:
@@ -644,6 +696,14 @@ class A320IFRSim:
         self.stall_warning = StallWarningSystem(self.fdm)
         self.gpws = GroundProximityWarningSystem(self.fdm)
         self.overspeed = OverspeedWarningSystem(self.fdm)
+        self.nav = NavigationSystem(
+            self.fdm,
+            [
+                (37.63, -122.02, None),
+                (37.60, -121.98, None),
+                (37.60, -122.05, None),
+            ],
+        )
         self.autopilot = Autopilot(
             self.fdm,
             dt,
@@ -652,6 +712,7 @@ class A320IFRSim:
             self.electrics,
             self.environment,
             self.anti_ice,
+            self.nav,
         )
         self.init_conditions()
         self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
@@ -664,8 +725,8 @@ class A320IFRSim:
         f['ic/vt-fps'] = self.target_speed * 1.68781
         f['ic/vc-kts'] = self.target_speed
         f['ic/h-sl-ft'] = self.target_altitude
-        f['ic/long_gc-deg'] = -122.0
-        f['ic/lat_gc-deg'] = 37.615
+        f['ic/long-gc-deg'] = -122.0
+        f['ic/lat-gc-deg'] = 37.615
         f['ic/weight-lbs'] = 130000
         f['propulsion/engine/set-running'] = 0
         f['propulsion/engine[1]/set-running'] = 0
@@ -689,6 +750,7 @@ class A320IFRSim:
             hyd_demand,
             anti_ice_on,
             ice_accum,
+            nav_dist,
         ) = self.autopilot.update()
         elec = self.electrics.update(n1 > 0.5, hyd_demand + 0.1, dt)
         cabin_alt, cabin_diff, bleed_press = self.pressurization.update(dt)
@@ -729,6 +791,7 @@ class A320IFRSim:
             'stall_warning': stall,
             'gpws_warning': gpws,
             'overspeed_warning': overspeed,
+            'nav_dist_nm': nav_dist,
         }
 
     def run(self, steps=600):
@@ -752,7 +815,8 @@ class A320IFRSim:
                     f"ice={data['ice_accum']:.2f} {'ON' if data['anti_ice_on'] else 'OFF'} "
                     f"stall={'YES' if data['stall_warning'] else 'NO'} "
                     f"gpws={'YES' if data['gpws_warning'] else 'NO'} "
-                    f"os={'YES' if data['overspeed_warning'] else 'NO'}"
+                    f"os={'YES' if data['overspeed_warning'] else 'NO'} "
+                    f"d2wp={data['nav_dist_nm']:.1f}nm"
                 )
             time.sleep(self.fdm.get_delta_t())
 
