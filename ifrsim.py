@@ -29,6 +29,8 @@ class Engine:
         self.spool_rate = spool_rate
         self.throttle = 0.0
         self.target = 0.0
+        self.efficiency = 1.0
+        self.extra_fuel_factor = 0.0
 
     def set_target(self, throttle: float) -> None:
         """Set desired throttle position."""
@@ -40,9 +42,10 @@ class Engine:
         max_delta = self.spool_rate * dt
         diff = max(min(diff, max_delta), -max_delta)
         self.throttle += diff
-        # Apply command to both engines
-        self.fdm['fcs/throttle-cmd-norm'] = self.throttle
-        self.fdm['fcs/throttle-cmd-norm[1]'] = self.throttle
+        # Apply command to both engines with efficiency factor
+        cmd = self.throttle * self.efficiency
+        self.fdm['fcs/throttle-cmd-norm'] = cmd
+        self.fdm['fcs/throttle-cmd-norm[1]'] = cmd
 
     def n1(self) -> float:
         """Return the N1 (fan speed) of the first engine."""
@@ -108,8 +111,9 @@ class SystemManager:
 class FuelSystem:
     """Track fuel quantity and burn rate for a simple two tank setup."""
 
-    def __init__(self, fdm):
+    def __init__(self, fdm, engine=None):
         self.fdm = fdm
+        self.engine = engine
         self.prev_used_0 = fdm.get_property_value('propulsion/engine/fuel-used-lbs')
         self.prev_used_1 = fdm.get_property_value('propulsion/engine[1]/fuel-used-lbs')
 
@@ -119,6 +123,9 @@ class FuelSystem:
         used_1 = self.fdm.get_property_value('propulsion/engine[1]/fuel-used-lbs')
         flow_0 = (used_0 - self.prev_used_0) / dt * 3600.0
         flow_1 = (used_1 - self.prev_used_1) / dt * 3600.0
+        if self.engine is not None:
+            flow_0 *= 1.0 + self.engine.extra_fuel_factor
+            flow_1 *= 1.0 + self.engine.extra_fuel_factor
         self.prev_used_0 = used_0
         self.prev_used_1 = used_1
         left = self.fdm.get_property_value('propulsion/tank/contents-lbs')
@@ -187,10 +194,13 @@ class ElectricSystem:
 class Environment:
     """Wind model with simple lateral and vertical gusts."""
 
-    def __init__(self, fdm, gust_strength=5.0, vertical_strength=2.0):
+    def __init__(self, fdm, gust_strength=5.0, vertical_strength=2.0, base_temp=15.0):
         self.fdm = fdm
         self.gust_strength = gust_strength
         self.vertical_strength = vertical_strength
+        self.base_temp = base_temp
+        self.temperature_c = base_temp
+        self.precip = 0.0
         self.t = 0.0
 
     def update(self, dt):
@@ -205,6 +215,40 @@ class Environment:
         vert_gust = self.vertical_strength * math.sin(self.t * 12.0)
         vert_gust += random.uniform(-self.vertical_strength, self.vertical_strength) * 0.1
         self.fdm['atmosphere/wind-down-fps'] = vert_base + vert_gust
+
+        alt = self.fdm.get_property_value('position/h-sl-ft')
+        self.temperature_c = self.base_temp - 0.002 * alt
+        if random.random() < 0.01:
+            self.precip = random.uniform(0.2, 1.0)
+        self.precip *= 0.99
+
+    def is_icing(self):
+        return self.temperature_c < 2.0 and self.precip > 0.3
+
+
+class AntiIceSystem:
+    """Minimal anti-ice system that counters engine icing."""
+
+    def __init__(self, environment, engine, melt_rate=0.05, acc_rate=0.1):
+        self.environment = environment
+        self.engine = engine
+        self.melt_rate = melt_rate
+        self.acc_rate = acc_rate
+        self.active = False
+        self.ice = 0.0
+
+    def set_active(self, state: bool) -> None:
+        self.active = state
+
+    def update(self, dt: float):
+        if self.environment.is_icing() and not self.active:
+            self.ice += self.acc_rate * dt
+        else:
+            self.ice -= self.melt_rate * dt
+        self.ice = max(0.0, min(1.0, self.ice))
+        self.engine.efficiency = 1.0 - 0.3 * self.ice
+        self.engine.extra_fuel_factor = 0.05 if self.active else 0.0
+        return self.active, self.ice
 
 
 class PressurizationSystem:
@@ -233,12 +277,14 @@ class PressurizationSystem:
 class Autopilot:
     """Heading, altitude and speed hold with basic system automation."""
 
-    def __init__(self, fdm, dt, engine, systems, electrics):
+    def __init__(self, fdm, dt, engine, systems, electrics, environment, anti_ice):
         self.fdm = fdm
         self.dt = dt
         self.engine = engine
         self.systems = systems
         self.electrics = electrics
+        self.environment = environment
+        self.anti_ice = anti_ice
         self.altitude = 0.0
         self.heading = 0.0
         self.speed = 0.0
@@ -275,6 +321,10 @@ class Autopilot:
         else:
             flap = 0.0
         self.systems.set_targets(gear=gear_cmd, flap=flap)
+
+        # Auto anti-ice when icing conditions are detected
+        icing = self.environment.is_icing()
+        self.anti_ice.set_active(icing)
 
     def update(self):
         f = self.fdm
@@ -320,6 +370,7 @@ class Autopilot:
         else:
             self.engine.set_target(0.0)
         self.engine.update(self.dt)
+        active, ice = self.anti_ice.update(self.dt)
 
         n1 = self.engine.n1()
         return (
@@ -332,6 +383,8 @@ class Autopilot:
             n1,
             pressure,
             demand,
+            active,
+            ice,
         )
 
 class A320IFRSim:
@@ -346,11 +399,14 @@ class A320IFRSim:
         self.target_speed = 250  # knots
         self.engine = Engine(self.fdm)
         self.systems = SystemManager(self.fdm)
-        self.fuel = FuelSystem(self.fdm)
+        self.fuel = FuelSystem(self.fdm, self.engine)
         self.electrics = ElectricSystem()
         self.environment = Environment(self.fdm)
+        self.anti_ice = AntiIceSystem(self.environment, self.engine)
         self.pressurization = PressurizationSystem(self.fdm)
-        self.autopilot = Autopilot(self.fdm, dt, self.engine, self.systems, self.electrics)
+        self.autopilot = Autopilot(
+            self.fdm, dt, self.engine, self.systems, self.electrics, self.environment, self.anti_ice
+        )
         self.init_conditions()
         self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
 
@@ -381,6 +437,8 @@ class A320IFRSim:
             n1,
             pressure,
             hyd_demand,
+            anti_ice_on,
+            ice_accum,
         ) = self.autopilot.update()
         elec = self.electrics.update(n1 > 0.5, hyd_demand + 0.1, dt)
         cabin_alt, cabin_diff = self.pressurization.update(dt)
@@ -403,6 +461,8 @@ class A320IFRSim:
             'gear': gear,
             'hyd_press': pressure,
             'elec_charge': elec,
+            'anti_ice_on': anti_ice_on,
+            'ice_accum': ice_accum,
             'cabin_altitude_ft': cabin_alt,
             'cabin_diff_psi': cabin_diff,
             'fuel_lbs': fuel,
@@ -423,7 +483,8 @@ class A320IFRSim:
                     f"hyd={data['hyd_press']:.2f} elec={data['elec_charge']:.2f} "
                     f"fuel={data['fuel_lbs']:.0f}lb "
                     f"cabin={data['cabin_altitude_ft']:.0f}ft "
-                    f"ff={data['fuel_flow_lbs_hr_eng1']:.0f}/{data['fuel_flow_lbs_hr_eng2']:.0f} pph"
+                    f"ff={data['fuel_flow_lbs_hr_eng1']:.0f}/{data['fuel_flow_lbs_hr_eng2']:.0f} pph "
+                    f"ice={data['ice_accum']:.2f} {'ON' if data['anti_ice_on'] else 'OFF'}"
                 )
             time.sleep(self.fdm.get_delta_t())
 
