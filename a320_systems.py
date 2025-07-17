@@ -45,6 +45,41 @@ class EngineDisplay:
 
 
 @dataclass
+class PressurizationDisplay:
+    """Show basic cabin pressurization information."""
+
+    cabin_alt_ft: float = 0.0
+    diff_psi: float = 0.0
+    temperature_c: float = 0.0
+
+    def update(self, data: dict) -> None:
+        self.cabin_alt_ft = data.get("cabin_altitude_ft", 0.0)
+        self.diff_psi = data.get("cabin_diff_psi", 0.0)
+        self.temperature_c = data.get("cabin_temp_c", 0.0)
+
+
+@dataclass
+class WarningPanel:
+    """Aggregate important warning flags."""
+
+    master_caution: bool = False
+    stall: bool = False
+    gpws: bool = False
+    overspeed: bool = False
+    fire: bool = False
+    tcas: bool = False
+
+    def update(self, data: dict) -> None:
+        warnings = data.get("warnings", {})
+        self.master_caution = warnings.get("master_caution", False)
+        self.stall = warnings.get("stall", False)
+        self.gpws = warnings.get("gpws", False)
+        self.overspeed = warnings.get("overspeed", False)
+        self.fire = warnings.get("fire", False)
+        self.tcas = warnings.get("tcas", False)
+
+
+@dataclass
 class FlightManagementSystem:
     """Very small FMS handling a route of waypoints."""
 
