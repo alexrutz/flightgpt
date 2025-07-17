@@ -47,6 +47,10 @@ class Engine:
         self.fire = False
         self.fire_timer = 0.0
         self.fire_chance = fire_chance
+        self.egt = 0.4
+        self.egt_timer = 0.0
+        self.egt_rise_rate = 0.5
+        self.egt_cool_rate = 0.2
 
     def _prop(self, name: str) -> str:
         if self.index == 0:
@@ -87,6 +91,16 @@ class Engine:
         cmd = self.throttle * self.efficiency
         self.fdm[self._fcs("throttle-cmd-norm")] = cmd
 
+        # Simple exhaust temperature model with overheat failure
+        self.egt += (self.throttle * self.egt_rise_rate - self.egt_cool_rate) * dt
+        self.egt = max(0.0, min(self.egt, 1.5))
+        if self.egt > 1.2:
+            self.egt_timer += dt
+        else:
+            self.egt_timer = 0.0
+        if self.egt_timer > 5.0:
+            self.fail()
+
         oil_p, oil_t = self.oil.update(self.throttle, dt)
         if oil_p < 0.2 or oil_t > 1.2:
             self.oil_timer += dt
@@ -112,6 +126,9 @@ class Engine:
 
     def oil_temperature(self) -> float:
         return self.oil.temperature
+
+    def exhaust_temperature(self) -> float:
+        return self.egt
 
     def extinguish_fire(self) -> None:
         self.fire = False
@@ -177,6 +194,14 @@ class EngineSystem:
         if not self.engines:
             return 0.0
         return sum(e.oil_temperature() for e in self.engines) / len(self.engines)
+
+    def exhaust_temperature(self) -> float:
+        if not self.engines:
+            return 0.0
+        return sum(e.exhaust_temperature() for e in self.engines) / len(self.engines)
+
+    def egt_list(self) -> list[float]:
+        return [e.exhaust_temperature() for e in self.engines]
 
     def fail(self, index: int | None = None) -> None:
         if index is None:
@@ -994,6 +1019,7 @@ class Autopilot:
         active, ice = self.anti_ice.update(self.dt)
 
         n1_list = self.engine.n1_list()
+        egt_list = self.engine.egt_list()
         oil_p = self.engine.oil_pressure()
         oil_t = self.engine.oil_temperature()
         return (
@@ -1013,6 +1039,7 @@ class Autopilot:
             self.last_autobrake_active,
             oil_p,
             oil_t,
+            egt_list,
         )
 
 class A320IFRSim:
@@ -1109,6 +1136,7 @@ class A320IFRSim:
             autobrake_active,
             oil_press,
             oil_temp,
+            egt_list,
         ) = self.autopilot.update()
         n1_avg = sum(n1_list) / len(n1_list)
         elec = self.electrics.update(n1_avg > 0.5, hyd_demand + 0.1, dt)
@@ -1158,6 +1186,7 @@ class A320IFRSim:
             'autobrake_active': autobrake_active,
             'oil_press': oil_press,
             'oil_temp': oil_temp,
+            'egt': egt_list,
             'engine_fire': fire,
             'fire_bottles': bottles,
         }
@@ -1172,6 +1201,7 @@ class A320IFRSim:
                     f"vs={data['vs_fpm']:.0f}fpm flap={data['flap']:.2f} "
                     f"gear={data['gear']:.0f} thr={data['throttle_cmd']:.2f} "
                     f"n1={'/'.join(f'{n*100:.0f}' if n<=2 else f'{n:.0f}' for n in data['n1'])}% "
+                    f"egt={'/'.join(f'{t*100:.0f}' for t in data['egt'])}% "
                     f"hyd={data['hyd_press']:.2f} elec={data['elec_charge']:.2f} "
                     f"fuel={data['fuel_lbs']:.0f}lb "
                     f"cabin={data['cabin_altitude_ft']:.0f}ft "
