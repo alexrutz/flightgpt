@@ -202,6 +202,7 @@ class A320Cockpit:
                 "apu_running": self.sim.electrics.apu_running,
                 "rat_deployed": data["rat_deployed"],
             },
+            "tcas": data["tcas_alert"],
             "fuel": {
                 "left_lbs": data["fuel_left_lbs"],
                 "right_lbs": data["fuel_right_lbs"],
@@ -218,6 +219,7 @@ class A320Cockpit:
                 "gpws": data["gpws_warning"],
                 "overspeed": data["overspeed_warning"],
                 "fire": data["engine_fire"],
+                "tcas": data["tcas_alert"],
                 "master_caution": data["master_caution"],
             },
         }
