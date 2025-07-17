@@ -258,8 +258,8 @@ class HydraulicSystem:
         self.failure_chance = failure_chance
         self.pump_on = True
 
-    def update(self, demand: float, dt: float) -> float:
-        if self.pump_on:
+    def update(self, demand: float, dt: float, pump_power: bool = True) -> float:
+        if self.pump_on and pump_power:
             if random.random() < self.failure_chance * dt:
                 self.pump_on = False
             else:
@@ -402,12 +402,12 @@ class SystemManager:
         if speedbrake is not None:
             self.target_speedbrake = max(0.0, min(speedbrake, 1.0))
 
-    def update(self, dt):
+    def update(self, dt, pump_power: bool = True):
         d_flap = self.target_flap - self.flap
         d_gear = self.target_gear - self.gear
         d_speedbrake = self.target_speedbrake - self.speedbrake
         demand = abs(d_flap) + abs(d_gear) + abs(d_speedbrake)
-        pressure = self.hydraulics.update(demand, dt)
+        pressure = self.hydraulics.update(demand, dt, pump_power)
 
         max_df = self.flap_rate * dt * pressure
         d_flap = max(min(d_flap, max_df), -max_df)
@@ -1088,7 +1088,8 @@ class Autopilot:
         agl = f.get_property_value('position/h-agl-ft')
         on_ground = agl < 5.0
         self._manage_systems(alt, speed, on_ground)
-        pressure, demand = self.systems.update(self.dt)
+        pump_power = self.engine.n1() > 0.2 or self.electrics.apu_running
+        pressure, demand = self.systems.update(self.dt, pump_power)
         brake_temp = 0.0
         if self.brakes is not None:
             _, brake_temp = self.brakes.update(on_ground, self.dt)

@@ -28,6 +28,8 @@ with automatic speedbrake deployment and introduces random hydraulic pump
 failures for additional system depth.
 A new bleed air model now ties engine and APU performance to cabin
 pressurization and anti-ice efficiency for greater realism.
+Hydraulic pumps now depend on engine or APU power, so losing all sources
+quickly reduces control surface authority.
 Engines now start using bleed air from the APU and take a few seconds to
 reach idle for more authentic startup behaviour.
 A small twin-engine model now tracks each engine separately, allowing
