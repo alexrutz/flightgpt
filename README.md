@@ -34,6 +34,8 @@ A small twin-engine model now tracks each engine separately, allowing
 individual failures and more realistic system behaviour.
 A small brake model tracks heat build-up on the ground for a touch more
 system depth.
+A basic autobrake system now manages wheel braking after touchdown for
+more realistic landings.
 A small navigation system lets the autopilot track a short series of
 waypoints for basic route following.
 Random generator failures may require the APU to power the aircraft and

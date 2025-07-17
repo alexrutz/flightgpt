@@ -266,6 +266,58 @@ class BrakeSystem:
         return efficiency, self.heat
 
 
+class AutobrakeSystem:
+    """Simple autobrake logic with selectable levels."""
+
+    LEVELS = {
+        'off': 0.0,
+        'low': 0.3,
+        'med': 0.6,
+        'high': 1.0,
+    }
+
+    def __init__(
+        self,
+        brakes: BrakeSystem,
+        level: str = 'off',
+        arm_speed_kt: float = 70.0,
+        disarm_speed_kt: float = 20.0,
+        throttle_threshold: float = 0.3,
+    ):
+        self.brakes = brakes
+        self.level = level if level in self.LEVELS else 'off'
+        self.arm_speed = arm_speed_kt
+        self.disarm_speed = disarm_speed_kt
+        self.throttle_threshold = throttle_threshold
+        self.active = False
+
+    def set_level(self, level: str) -> None:
+        if level in self.LEVELS:
+            self.level = level
+            self.active = False
+
+    def update(self, on_ground: bool, speed_kt: float, throttle: float) -> bool:
+        if self.level == 'off':
+            self.active = False
+        else:
+            if (
+                on_ground
+                and speed_kt > self.arm_speed
+                and throttle < self.throttle_threshold
+            ):
+                self.active = True
+            if (
+                not on_ground
+                or throttle >= self.throttle_threshold
+                or speed_kt < self.disarm_speed
+            ):
+                self.active = False
+
+        if self.active:
+            self.brakes.set_command(self.LEVELS[self.level])
+        return self.active
+
+
 class OilSystem:
     """Track basic oil pressure and temperature."""
 
@@ -795,6 +847,7 @@ class Autopilot:
         anti_ice,
         brakes=None,
         nav=None,
+        autobrake=None,
         capture_window=200.0,
         climb_vs_fpm=1500.0,
         descent_vs_fpm=-1500.0,
@@ -808,6 +861,8 @@ class Autopilot:
         self.anti_ice = anti_ice
         self.brakes = brakes
         self.nav = nav
+        self.autobrake = autobrake
+        self.last_autobrake_active = False
         self.autothrottle = Autothrottle(fdm, engine)
         self.altitude = 0.0
         self.heading = 0.0
@@ -865,10 +920,17 @@ class Autopilot:
         self.systems.set_targets(gear=gear_cmd, flap=flap, speedbrake=speedbrake)
 
         if self.brakes is not None:
-            if on_ground and speed > 30:
-                self.brakes.set_command(min((speed - 30) / 40.0, 1.0))
-            else:
-                self.brakes.set_command(0.0)
+            autobrake_active = False
+            if self.autobrake is not None:
+                autobrake_active = self.autobrake.update(
+                    on_ground, speed, self.engine.throttle
+                )
+            if not autobrake_active:
+                if on_ground and speed > 30:
+                    self.brakes.set_command(min((speed - 30) / 40.0, 1.0))
+                else:
+                    self.brakes.set_command(0.0)
+            self.last_autobrake_active = autobrake_active
 
         # Auto anti-ice when icing conditions are detected
         icing = self.environment.is_icing()
@@ -948,6 +1010,7 @@ class Autopilot:
             ice,
             nav_dist,
             brake_temp,
+            self.last_autobrake_active,
             oil_p,
             oil_t,
         )
@@ -973,6 +1036,7 @@ class A320IFRSim:
         self.starter = EngineStartSystem(self.fdm, self.bleed, self.engines)
         self.environment = Environment(self.fdm)
         self.brakes = BrakeSystem()
+        self.autobrake = AutobrakeSystem(self.brakes)
         self.anti_ice = AntiIceSystem(
             self.environment, self.engines, self.bleed, failure_chance=1e-4
         )
@@ -1000,6 +1064,7 @@ class A320IFRSim:
             self.anti_ice,
             self.brakes,
             self.nav,
+            self.autobrake,
         )
         self.init_conditions()
         self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
@@ -1041,6 +1106,7 @@ class A320IFRSim:
             ice_accum,
             nav_dist,
             brake_temp,
+            autobrake_active,
             oil_press,
             oil_temp,
         ) = self.autopilot.update()
@@ -1089,6 +1155,7 @@ class A320IFRSim:
             'overspeed_warning': overspeed,
             'nav_dist_nm': nav_dist,
             'brake_temp': brake_temp,
+            'autobrake_active': autobrake_active,
             'oil_press': oil_press,
             'oil_temp': oil_temp,
             'engine_fire': fire,
@@ -1119,6 +1186,7 @@ class A320IFRSim:
                     f"os={'YES' if data['overspeed_warning'] else 'NO'} "
                     f"d2wp={data['nav_dist_nm']:.1f}nm "
                     f"brk={data['brake_temp']:.2f} "
+                    f"autobrk={'ON' if data['autobrake_active'] else 'OFF'} "
                     f"oil={data['oil_press']:.2f}/{data['oil_temp']:.2f} "
                     f"fire={'YES' if data['engine_fire'] else 'NO'} "
                     f"btl={data['fire_bottles']}"
