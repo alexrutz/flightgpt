@@ -508,6 +508,30 @@ class FuelSystem:
         }
 
 
+class RamAirTurbine:
+    """Provide emergency electrical power when deployed."""
+
+    def __init__(
+        self,
+        deploy_threshold=0.1,
+        retract_threshold=0.6,
+        charge_rate=0.05,
+    ):
+        self.deploy_threshold = deploy_threshold
+        self.retract_threshold = retract_threshold
+        self.charge_rate = charge_rate
+        self.deployed = False
+
+    def update(self, electrics, generator_available: bool, dt: float) -> bool:
+        if not self.deployed and electrics.charge < self.deploy_threshold and not generator_available:
+            self.deployed = True
+        if self.deployed and (electrics.charge > self.retract_threshold or generator_available):
+            self.deployed = False
+        if self.deployed:
+            electrics.charge = min(1.0, electrics.charge + self.charge_rate * dt)
+        return self.deployed
+
+
 class ElectricSystem:
     """Electrical system with battery, generator and a simple APU."""
 
@@ -518,6 +542,7 @@ class ElectricSystem:
         apu_charge_rate=0.1,
         apu_start_time=5.0,
         generator_failure_chance=0.0,
+        rat=None,
     ):
         self.charge = 1.0
         self.charge_rate = charge_rate
@@ -528,6 +553,7 @@ class ElectricSystem:
         self.apu_timer = 0.0
         self.generator_failure_chance = generator_failure_chance
         self.generator_failed = False
+        self.rat = rat
 
     def start_apu(self) -> None:
         if not self.apu_running:
@@ -561,10 +587,16 @@ class ElectricSystem:
         if self.charge > 0.95 and self.apu_running and gen_available:
             self.stop_apu()
 
+        if self.rat is not None:
+            self.rat.update(self, gen_available, dt)
+
         return self.charge
 
     def is_powered(self) -> bool:
         return self.charge > 0.05
+
+    def rat_deployed(self) -> bool:
+        return self.rat.deployed if self.rat is not None else False
 
 
 class BleedAirSystem:
@@ -1074,7 +1106,8 @@ class A320IFRSim:
             Engine(self.fdm, 1, failure_chance=5e-5, fire_chance=1e-5),
         ])
         self.systems = SystemManager(self.fdm, failure_chance=1e-4)
-        self.electrics = ElectricSystem(generator_failure_chance=5e-5)
+        self.rat = RamAirTurbine()
+        self.electrics = ElectricSystem(generator_failure_chance=5e-5, rat=self.rat)
         self.fuel = FuelSystem(self.fdm, self.engines, self.electrics)
         self.bleed = BleedAirSystem(self.engines, self.electrics)
         self.starter = EngineStartSystem(self.fdm, self.bleed, self.engines)
@@ -1206,6 +1239,7 @@ class A320IFRSim:
             'egt': egt_list,
             'engine_fire': fire,
             'fire_bottles': bottles,
+            'rat_deployed': self.electrics.rat_deployed(),
         }
 
     def run(self, steps=600):
@@ -1236,7 +1270,8 @@ class A320IFRSim:
                     f"autobrk={'ON' if data['autobrake_active'] else 'OFF'} "
                     f"oil={data['oil_press']:.2f}/{data['oil_temp']:.2f} "
                     f"fire={'YES' if data['engine_fire'] else 'NO'} "
-                    f"btl={data['fire_bottles']}"
+                    f"btl={data['fire_bottles']} "
+                    f"rat={'DEP' if data['rat_deployed'] else 'STOW'}"
                 )
             time.sleep(self.fdm.get_delta_t())
 
