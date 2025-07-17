@@ -302,6 +302,26 @@ class NavigationDisplay:
 
 
 @dataclass
+class TCASDisplay:
+    """Show TCAS traffic alert information."""
+
+    bearing_deg: float = 0.0
+    distance_nm: float = 0.0
+    alt_diff_ft: float = 0.0
+    alert: bool = False
+
+    def update(self, data: dict) -> None:
+        alert = data.get("tcas_alert")
+        if alert:
+            self.bearing_deg = alert.get("bearing_deg", 0.0)
+            self.distance_nm = alert.get("distance_nm", 0.0)
+            self.alt_diff_ft = alert.get("alt_diff_ft", 0.0)
+            self.alert = True
+        else:
+            self.alert = False
+
+
+@dataclass
 class SystemsStatusPanel:
     """Display hydraulic, electrical and bleed air status."""
 
@@ -376,6 +396,7 @@ class CockpitSystems:
     pressurization: PressurizationDisplay = field(default_factory=PressurizationDisplay)
     warnings: WarningPanel = field(default_factory=WarningPanel)
     navigation: NavigationDisplay = field(default_factory=NavigationDisplay)
+    tcas: TCASDisplay = field(default_factory=TCASDisplay)
     systems: SystemsStatusPanel = field(default_factory=SystemsStatusPanel)
     overhead: OverheadPanel = field(default_factory=OverheadPanel)
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
@@ -388,6 +409,7 @@ class CockpitSystems:
         self.pressurization.update(data)
         self.warnings.update({"warnings": data.get("warnings", {})})
         self.navigation.update(data)
+        self.tcas.update(data)
         self.systems.update(data)
         self.overhead.update(data)
         self.cabin.update(data)
