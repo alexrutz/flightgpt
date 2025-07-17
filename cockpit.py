@@ -15,6 +15,7 @@ from a320_systems import (
     APUPanel,
     ElectricalPanel,
     FuelPanel,
+    FlightControlPanel,
 )
 
 
@@ -33,6 +34,7 @@ class A320Cockpit:
         self.apu = APUPanel(self.sim.electrics)
         self.electrics = ElectricalPanel(self.sim.electrics)
         self.fuel = FuelPanel(self.sim.fuel)
+        self.controls = FlightControlPanel(self.sim.systems)
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
         self.fms = FlightManagementSystem(self.sim.nav)
@@ -77,6 +79,7 @@ class A320Cockpit:
                 "target_vs_fpm": self.sim.autopilot.vs_target_fpm,
                 "autobrake_level": self.sim.autobrake.level,
                 "autobrake_active": data["autobrake_active"],
+                "automation": self.sim.autopilot.auto_manage_systems,
             },
             "hydraulics": {"pressure": data["hyd_press"]},
             "electrical": {
@@ -98,6 +101,11 @@ class A320Cockpit:
                 "altitude_ft": data["cabin_altitude_ft"],
                 "diff_psi": data["cabin_diff_psi"],
                 "temperature_c": data["cabin_temp_c"],
+            },
+            "controls": {
+                "flap": data["flap"],
+                "gear": data["gear"],
+                "speedbrake": self.sim.systems.speedbrake,
             },
             "warnings": {
                 "stall": data["stall_warning"],

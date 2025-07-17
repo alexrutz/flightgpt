@@ -14,6 +14,10 @@ HELP_TEXT = """Available commands:
   spd VALUE           - set target speed in kt
   vs VALUE            - set target vertical speed in fpm
   xfeed on|off        - enable or disable fuel crossfeed
+  gear up|down        - move the landing gear
+  flap VALUE          - set flaps (0.0-1.0)
+  spbrake VALUE       - set speedbrake (0.0-1.0)
+  auto_sys on|off     - toggle automatic system management
   apu start|stop      - start or stop the APU
   engines start       - start the engines
   quit                - exit the program"""
@@ -107,6 +111,32 @@ def main() -> None:
                 cp.autopilot.set_vs(float(args[0]))
             except ValueError:
                 print("Invalid vertical speed")
+            continue
+        if cmd == "gear" and args:
+            if args[0] in {"up", "down"}:
+                cp.controls.set_gear(args[0])
+            else:
+                print("Usage: gear up|down")
+            continue
+        if cmd == "flap" and args:
+            try:
+                cp.controls.set_flap(float(args[0]))
+            except ValueError:
+                print("Invalid flap setting")
+            continue
+        if cmd == "spbrake" and args:
+            try:
+                cp.controls.set_speedbrake(float(args[0]))
+            except ValueError:
+                print("Invalid speedbrake setting")
+            continue
+        if cmd == "auto_sys" and args:
+            if args[0] == "on":
+                cp.sim.autopilot.set_system_automation(True)
+            elif args[0] == "off":
+                cp.sim.autopilot.set_system_automation(False)
+            else:
+                print("Usage: auto_sys on|off")
             continue
         if cmd == "xfeed" and args:
             if args[0] == "on":
