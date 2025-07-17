@@ -383,9 +383,22 @@ class OilSystem:
 
 
 class SystemManager:
-    """Handles slow actuation of gear, flaps and speedbrake with hydraulics."""
+    """Handles slow actuation of gear, flaps and speedbrake with hydraulics.
 
-    def __init__(self, fdm, flap_rate=0.5, gear_rate=0.5, speedbrake_rate=0.5, failure_chance=0.0):
+    Flaps and gear may become inoperable if moved above their respective
+    overspeed limits to model structural damage.
+    """
+
+    def __init__(
+        self,
+        fdm,
+        flap_rate=0.5,
+        gear_rate=0.5,
+        speedbrake_rate=0.5,
+        failure_chance=0.0,
+        flap_overspeed_kt=220.0,
+        gear_overspeed_kt=250.0,
+    ):
         self.fdm = fdm
         self.flap_rate = flap_rate
         self.gear_rate = gear_rate
@@ -397,6 +410,10 @@ class SystemManager:
         self.target_gear = 0.0
         self.target_speedbrake = 0.0
         self.hydraulics = HydraulicSystem(failure_chance=failure_chance)
+        self.flap_overspeed_kt = flap_overspeed_kt
+        self.gear_overspeed_kt = gear_overspeed_kt
+        self.flap_operable = True
+        self.gear_operable = True
 
     def set_targets(self, gear=None, flap=None, speedbrake=None):
         if gear is not None:
@@ -406,21 +423,29 @@ class SystemManager:
         if speedbrake is not None:
             self.target_speedbrake = max(0.0, min(speedbrake, 1.0))
 
-    def update(self, dt, pump_power: bool = True):
+    def update(self, dt, pump_power: bool = True, speed_kt: float = 0.0):
         d_flap = self.target_flap - self.flap
         d_gear = self.target_gear - self.gear
         d_speedbrake = self.target_speedbrake - self.speedbrake
         demand = abs(d_flap) + abs(d_gear) + abs(d_speedbrake)
         pressure = self.hydraulics.update(demand, dt, pump_power)
 
-        max_df = self.flap_rate * dt * pressure
-        d_flap = max(min(d_flap, max_df), -max_df)
-        self.flap += d_flap
+        if self.flap_operable:
+            if speed_kt > self.flap_overspeed_kt and abs(d_flap) > 0.0:
+                self.flap_operable = False
+            else:
+                max_df = self.flap_rate * dt * pressure
+                d_flap = max(min(d_flap, max_df), -max_df)
+                self.flap += d_flap
         self.fdm['fcs/flap-cmd-norm'] = self.flap
 
-        max_dg = self.gear_rate * dt * pressure
-        d_gear = max(min(d_gear, max_dg), -max_dg)
-        self.gear += d_gear
+        if self.gear_operable:
+            if speed_kt > self.gear_overspeed_kt and abs(d_gear) > 0.0:
+                self.gear_operable = False
+            else:
+                max_dg = self.gear_rate * dt * pressure
+                d_gear = max(min(d_gear, max_dg), -max_dg)
+                self.gear += d_gear
         self.fdm['gear/gear-cmd-norm'] = self.gear
 
         max_ds = self.speedbrake_rate * dt * pressure
@@ -826,6 +851,36 @@ class PressurizationSystem:
         return self.cabin_alt, diff, bleed
 
 
+class CabinTemperatureSystem:
+    """Simple cabin temperature model using bleed air."""
+
+    def __init__(
+        self,
+        environment,
+        bleed=None,
+        target_temp_c=21.0,
+        leak_rate=0.002,
+        control_gain=0.1,
+    ):
+        self.environment = environment
+        self.bleed = bleed
+        self.target_temp = target_temp_c
+        self.leak_rate = leak_rate
+        self.control_gain = control_gain
+        self.cabin_temp = target_temp_c
+
+    def update(self, dt: float) -> float:
+        outside = self.environment.temperature_c
+        bleed_temp = outside
+        if self.bleed is not None:
+            bleed_temp += 100.0 * self.bleed.pressure
+        # heat/cool towards bleed temperature
+        self.cabin_temp += (bleed_temp - self.cabin_temp) * self.control_gain * dt
+        # leakage towards outside temperature
+        self.cabin_temp += (outside - self.cabin_temp) * self.leak_rate * dt
+        return self.cabin_temp
+
+
 class OxygenSystem:
     """Monitor oxygen supply based on cabin altitude."""
 
@@ -1168,7 +1223,7 @@ class Autopilot:
         on_ground = agl < 5.0
         self._manage_systems(alt, speed, on_ground)
         pump_power = self.engine.n1() > 0.2 or self.electrics.apu_running
-        pressure, demand = self.systems.update(self.dt, pump_power)
+        pressure, demand = self.systems.update(self.dt, pump_power, speed)
         brake_temp = 0.0
         if self.brakes is not None:
             _, brake_temp = self.brakes.update(on_ground, self.dt)
@@ -1238,6 +1293,8 @@ class Autopilot:
             loc_dev,
             gs_dev,
             ils_dist,
+            self.systems.flap_operable,
+            self.systems.gear_operable,
         )
 
 class A320IFRSim:
@@ -1269,6 +1326,7 @@ class A320IFRSim:
         )
         self.wing_ice = WingIceSystem(self.environment, self.bleed)
         self.pressurization = PressurizationSystem(self.fdm, self.bleed)
+        self.cabin_temp = CabinTemperatureSystem(self.environment, self.bleed)
         self.oxygen = OxygenSystem()
         self.stall_warning = StallWarningSystem(self.fdm, wing_ice=self.wing_ice)
         self.gpws = GroundProximityWarningSystem(self.fdm)
@@ -1347,10 +1405,13 @@ class A320IFRSim:
             loc_dev,
             gs_dev,
             ils_dist,
+            flap_ok,
+            gear_ok,
         ) = self.autopilot.update()
         n1_avg = sum(n1_list) / len(n1_list)
         elec = self.electrics.update(n1_avg > 0.5, hyd_demand + 0.1, dt)
         cabin_alt, cabin_diff, bleed_press = self.pressurization.update(dt)
+        cabin_temp = self.cabin_temp.update(dt)
         fuel_data = self.fuel.update()
         oxygen = self.oxygen.update(cabin_alt, dt)
         self.fire_suppr.update(dt)
@@ -1383,6 +1444,7 @@ class A320IFRSim:
             'wing_ice_accum': wing_ice_accum,
             'cabin_altitude_ft': cabin_alt,
             'cabin_diff_psi': cabin_diff,
+            'cabin_temp_c': cabin_temp,
             'bleed_press': bleed_press,
             'fuel_lbs': fuel,
             'fuel_flow_lbs_hr_eng1': fuel_data['flow0_pph'],
@@ -1405,6 +1467,8 @@ class A320IFRSim:
             'engine_fire': fire,
             'fire_bottles': bottles,
             'rat_deployed': self.electrics.rat_deployed(),
+            'flap_operable': self.systems.flap_operable,
+            'gear_operable': self.systems.gear_operable,
         }
 
     def run(self, steps=600):

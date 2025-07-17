@@ -57,6 +57,9 @@ An approach mode now tracks an ILS localizer and glideslope for hands-off
 landings.
 Wing icing is now simulated and increases stall speed unless the wing
 anti-ice system is active.
+Flap and landing gear mechanisms can now jam when moved above their
+overspeed limits and a small cabin temperature model uses bleed air to
+keep the cabin comfortable.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
