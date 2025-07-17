@@ -339,3 +339,29 @@ class CabinSignsPanel:
             self.seatbelt_on = data["seatbelt_on"]
         if "no_smoking_on" in data:
             self.no_smoking_on = data["no_smoking_on"]
+
+
+@dataclass
+class LightingPanel:
+    """Manage exterior light switches."""
+
+    landing_on: bool = False
+    taxi_on: bool = False
+    nav_on: bool = False
+    strobe_on: bool = False
+    beacon_on: bool = False
+
+    def set_landing(self, on: bool) -> None:
+        self.landing_on = on
+
+    def set_taxi(self, on: bool) -> None:
+        self.taxi_on = on
+
+    def set_nav(self, on: bool) -> None:
+        self.nav_on = on
+
+    def set_strobe(self, on: bool) -> None:
+        self.strobe_on = on
+
+    def set_beacon(self, on: bool) -> None:
+        self.beacon_on = on
