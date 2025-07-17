@@ -38,6 +38,8 @@ Random generator failures may require the APU to power the aircraft and
 severe icing can now lead to engine flameouts that need a restart.
 An oil system tracks pressure and temperature and may cause engine
 failures when overheating or losing lubrication.
+A simple fire detection and suppression system automatically
+extinguishes engine fires using two bottles for added emergency depth.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
