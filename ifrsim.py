@@ -224,11 +224,12 @@ class EngineSystem:
 class Autothrottle:
     """Maintain target airspeed by commanding engine thrust."""
 
-    def __init__(self, fdm, engine: EngineSystem, kp=0.01, ki=0.0, kd=0.0):
+    def __init__(self, fdm, engine: EngineSystem, kp=0.01, ki=0.0, kd=0.0, pitot=None):
         self.fdm = fdm
         self.engine = engine
         self.pid = PIDController(kp, ki, kd)
         self.target_speed = 0.0
+        self.pitot = pitot
 
     def set_target(self, speed_kt: float) -> None:
         """Set desired airspeed in knots."""
@@ -236,7 +237,10 @@ class Autothrottle:
 
     def update(self, dt: float, powered: bool = True) -> float:
         """Update engine throttle to hold the target speed."""
-        speed = self.fdm.get_property_value('velocities/vt-fps') / 1.68781
+        if self.pitot is not None:
+            speed = self.pitot.indicated_speed(self.fdm)
+        else:
+            speed = self.fdm.get_property_value('velocities/vt-fps') / 1.68781
         throttle_cmd = self.pid.update(self.target_speed - speed, dt)
         throttle_cmd = max(0.0, min(throttle_cmd, 1.0))
         if powered:
@@ -737,6 +741,32 @@ class AntiIceSystem:
         return self.active, self.ice
 
 
+class PitotSystem:
+    """Simulate pitot tube icing and heating."""
+
+    def __init__(self, environment, heat_on=True, clog_rate=0.1, clear_rate=0.05):
+        self.environment = environment
+        self.heat_on = heat_on
+        self.clog_rate = clog_rate
+        self.clear_rate = clear_rate
+        self.clog = 0.0
+
+    def set_heat(self, state: bool) -> None:
+        self.heat_on = state
+
+    def update(self, dt: float) -> float:
+        if self.environment.is_icing() and not self.heat_on:
+            self.clog += self.clog_rate * dt
+        else:
+            self.clog -= self.clear_rate * dt
+        self.clog = max(0.0, min(self.clog, 1.0))
+        return self.clog
+
+    def indicated_speed(self, fdm) -> float:
+        speed = fdm.get_property_value('velocities/vt-fps') / 1.68781
+        return speed * (1.0 - 0.5 * self.clog)
+
+
 class PressurizationSystem:
     """Track cabin altitude based on a simple pressurization model."""
 
@@ -960,6 +990,7 @@ class Autopilot:
         nav=None,
         autobrake=None,
         ils=None,
+        pitot=None,
         capture_window=200.0,
         climb_vs_fpm=1500.0,
         descent_vs_fpm=-1500.0,
@@ -975,8 +1006,9 @@ class Autopilot:
         self.nav = nav
         self.autobrake = autobrake
         self.ils = ils
+        self.pitot = pitot
         self.last_autobrake_active = False
-        self.autothrottle = Autothrottle(fdm, engine)
+        self.autothrottle = Autothrottle(fdm, engine, pitot=pitot)
         self.altitude = 0.0
         self.heading = 0.0
         self.speed = 0.0
@@ -1048,12 +1080,19 @@ class Autopilot:
         # Auto anti-ice when icing conditions are detected
         icing = self.environment.is_icing()
         self.anti_ice.set_active(icing)
+        if self.pitot is not None:
+            self.pitot.set_heat(icing)
 
     def update(self):
         f = self.fdm
+        if self.pitot is not None:
+            self.pitot.update(self.dt)
         alt = f.get_property_value('position/h-sl-ft')
         psi = f.get_property_value('attitude/psi-deg')
-        speed = f.get_property_value('velocities/vt-fps') / 1.68781
+        if self.pitot is not None:
+            speed = self.pitot.indicated_speed(f)
+        else:
+            speed = f.get_property_value('velocities/vt-fps') / 1.68781
         vs = f.get_property_value('velocities/h-dot-fps')  # ft/s
 
         loc_dev = None
@@ -1176,6 +1215,7 @@ class A320IFRSim:
         self.bleed = BleedAirSystem(self.engines, self.electrics)
         self.starter = EngineStartSystem(self.fdm, self.bleed, self.engines)
         self.environment = Environment(self.fdm)
+        self.pitot = PitotSystem(self.environment)
         self.brakes = BrakeSystem()
         self.autobrake = AutobrakeSystem(self.brakes)
         self.anti_ice = AntiIceSystem(
@@ -1208,6 +1248,7 @@ class A320IFRSim:
             self.nav,
             self.autobrake,
             self.ils,
+            self.pitot,
         )
         self.init_conditions()
         self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
