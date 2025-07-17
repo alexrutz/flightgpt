@@ -19,6 +19,9 @@ from a320_systems import (
     FuelPanel,
     FlightControlPanel,
     WeatherRadarPanel,
+    NavigationDisplay,
+    SystemsStatusPanel,
+    OverheadPanel,
 )
 
 
@@ -37,6 +40,9 @@ class A320Cockpit:
         self.fuel = FuelPanel(self.sim.fuel)
         self.controls = FlightControlPanel(self.sim.systems)
         self.weather_radar = WeatherRadarPanel(self.sim.weather_radar)
+        self.nav_display = NavigationDisplay()
+        self.system_status = SystemsStatusPanel()
+        self.overhead = OverheadPanel()
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
         self.pressurization = PressurizationDisplay()
@@ -49,6 +55,9 @@ class A320Cockpit:
         self.pfd.update(data)
         self.ecam_display.update(data)
         self.weather_radar.update(data)
+        self.nav_display.update(data)
+        self.system_status.update(data)
+        self.overhead.update(data)
         self.pressurization.update(data)
         warnings = {
             "stall": data["stall_warning"],
@@ -96,11 +105,27 @@ class A320Cockpit:
                 "autobrake_active": data["autobrake_active"],
                 "automation": self.sim.autopilot.auto_manage_systems,
             },
+            "nav_display": {
+                "distance_nm": self.nav_display.distance_nm,
+                "ils_distance_nm": self.nav_display.ils_distance_nm,
+                "loc_dev_deg": self.nav_display.loc_dev_deg,
+                "gs_dev_ft": self.nav_display.gs_dev_ft,
+                "tcas": self.nav_display.tcas_alert,
+            },
             "hydraulics": {"pressure": data["hyd_press"]},
             "electrical": {
                 "charge": data["elec_charge"],
                 "apu_running": self.sim.electrics.apu_running,
                 "rat_deployed": data["rat_deployed"],
+            },
+            "systems": {
+                "hydraulic_pressure": self.system_status.hydraulic_pressure,
+                "electrical_charge": self.system_status.electrical_charge,
+                "bleed_pressure": self.system_status.bleed_pressure,
+            },
+            "overhead": {
+                "apu_running": self.overhead.apu_running,
+                "crossfeed": self.overhead.crossfeed,
             },
             "weather_radar": self.weather_radar.detecting,
             "tcas": data["tcas_alert"],
