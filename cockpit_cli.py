@@ -20,6 +20,8 @@ HELP_TEXT = """Available commands:
   auto_sys on|off     - toggle automatic system management
   apu start|stop      - start or stop the APU
   engines start       - start the engines
+  seatbelt on|off     - toggle the seatbelt sign
+  nosmoke on|off      - toggle the no smoking sign
   quit                - exit the program"""
 
 
@@ -31,7 +33,9 @@ def print_status(status: dict) -> None:
         f"SPD {pfd['speed_kt']:.1f}KT "
         f"HDG {pfd['heading_deg']:.0f} "
         f"VS {pfd['vs_fpm']:.0f}FPM "
-        f"FUEL {ecam['fuel_lbs']:.0f}LB"
+        f"FUEL {ecam['fuel_lbs']:.0f}LB "
+        f"BELT {'ON' if status['cabin_signs']['seatbelt'] else 'OFF'} "
+        f"SMOKE {'ON' if status['cabin_signs']['no_smoking'] else 'OFF'}"
     )
 
 
@@ -145,6 +149,22 @@ def main() -> None:
                 cp.fuel.disable_crossfeed()
             else:
                 print("Usage: xfeed on|off")
+            continue
+        if cmd == "seatbelt" and args:
+            if args[0] == "on":
+                cp.set_seatbelt_sign(True)
+            elif args[0] == "off":
+                cp.set_seatbelt_sign(False)
+            else:
+                print("Usage: seatbelt on|off")
+            continue
+        if cmd == "nosmoke" and args:
+            if args[0] == "on":
+                cp.set_no_smoking_sign(True)
+            elif args[0] == "off":
+                cp.set_no_smoking_sign(False)
+            else:
+                print("Usage: nosmoke on|off")
             continue
         if cmd == "apu" and args:
             if args[0] == "start":

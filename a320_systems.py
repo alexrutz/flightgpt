@@ -325,3 +325,17 @@ class OverheadPanel:
     def update(self, data: dict) -> None:
         self.apu_running = data.get("apu_running", False)
         self.crossfeed = data.get("crossfeed", False)
+
+
+@dataclass
+class CabinSignsPanel:
+    """Manage seatbelt and no smoking signs."""
+
+    seatbelt_on: bool = False
+    no_smoking_on: bool = False
+
+    def update(self, data: dict) -> None:
+        if "seatbelt_on" in data:
+            self.seatbelt_on = data["seatbelt_on"]
+        if "no_smoking_on" in data:
+            self.no_smoking_on = data["no_smoking_on"]
