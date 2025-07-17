@@ -22,9 +22,16 @@ class PIDController:
 
 
 class Engine:
-    """Simple engine model with throttle spool dynamics and oil system."""
+    """Simple engine model with throttle spool dynamics, oil and fire."""
 
-    def __init__(self, fdm, spool_rate=0.2, failure_chance=0.0, oil=None):
+    def __init__(
+        self,
+        fdm,
+        spool_rate=0.2,
+        failure_chance=0.0,
+        oil=None,
+        fire_chance=0.0,
+    ):
         self.fdm = fdm
         self.spool_rate = spool_rate
         self.failure_chance = failure_chance
@@ -35,6 +42,9 @@ class Engine:
         self.failed = False
         self.oil = oil or OilSystem()
         self.oil_timer = 0.0
+        self.fire = False
+        self.fire_timer = 0.0
+        self.fire_chance = fire_chance
 
     def fail(self) -> None:
         """Fail both engines."""
@@ -76,6 +86,15 @@ class Engine:
         if self.oil_timer > 5.0:
             self.fail()
 
+        if not self.fire and random.random() < self.fire_chance * dt:
+            self.fire = True
+        if self.fire:
+            self.fire_timer += dt
+            if self.fire_timer > 10.0:
+                self.fail()
+        else:
+            self.fire_timer = 0.0
+
     def n1(self) -> float:
         """Return the N1 (fan speed) of the first engine."""
         return self.fdm.get_property_value('propulsion/engine/n1')
@@ -85,6 +104,10 @@ class Engine:
 
     def oil_temperature(self) -> float:
         return self.oil.temperature
+
+    def extinguish_fire(self) -> None:
+        self.fire = False
+        self.fire_timer = 0.0
 
 
 class Autothrottle:
@@ -591,6 +614,32 @@ class OverspeedWarningSystem:
         return speed > self.limit
 
 
+class FireSuppressionSystem:
+    """Detect and extinguish engine fires with limited bottles."""
+
+    def __init__(self, engine, bottles=2):
+        self.engine = engine
+        self.bottles = bottles
+        self.active = False
+        self.timer = 0.0
+
+    def update(self, dt):
+        if self.engine.fire and not self.active and self.bottles > 0:
+            self.bottles -= 1
+            self.active = True
+            self.timer = 0.0
+        if self.active:
+            self.timer += dt
+            if self.timer > 1.0:
+                self.engine.extinguish_fire()
+                self.active = False
+
+        return self.engine.fire
+
+    def bottles_left(self) -> int:
+        return self.bottles
+
+
 class NavigationSystem:
     """Very small waypoint-based navigation model."""
 
@@ -813,7 +862,7 @@ class A320IFRSim:
         self.target_altitude = 4000  # feet
         self.target_psi = 0  # heading degrees
         self.target_speed = 250  # knots
-        self.engine = Engine(self.fdm, failure_chance=5e-5)
+        self.engine = Engine(self.fdm, failure_chance=5e-5, fire_chance=1e-5)
         self.systems = SystemManager(self.fdm, failure_chance=1e-4)
         self.electrics = ElectricSystem(generator_failure_chance=5e-5)
         self.fuel = FuelSystem(self.fdm, self.engine, self.electrics)
@@ -829,6 +878,7 @@ class A320IFRSim:
         self.stall_warning = StallWarningSystem(self.fdm)
         self.gpws = GroundProximityWarningSystem(self.fdm)
         self.overspeed = OverspeedWarningSystem(self.fdm)
+        self.fire_suppr = FireSuppressionSystem(self.engine)
         self.nav = NavigationSystem(
             self.fdm,
             [
@@ -895,6 +945,9 @@ class A320IFRSim:
         cabin_alt, cabin_diff, bleed_press = self.pressurization.update(dt)
         fuel_data = self.fuel.update()
         oxygen = self.oxygen.update(cabin_alt, dt)
+        self.fire_suppr.update(dt)
+        fire = self.engine.fire
+        bottles = self.fire_suppr.bottles_left()
         stall = self.stall_warning.update()
         gpws = self.gpws.update()
         overspeed = self.overspeed.update()
@@ -934,6 +987,8 @@ class A320IFRSim:
             'brake_temp': brake_temp,
             'oil_press': oil_press,
             'oil_temp': oil_temp,
+            'engine_fire': fire,
+            'fire_bottles': bottles,
         }
 
     def run(self, steps=600):
@@ -960,7 +1015,9 @@ class A320IFRSim:
                     f"os={'YES' if data['overspeed_warning'] else 'NO'} "
                     f"d2wp={data['nav_dist_nm']:.1f}nm "
                     f"brk={data['brake_temp']:.2f} "
-                    f"oil={data['oil_press']:.2f}/{data['oil_temp']:.2f}"
+                    f"oil={data['oil_press']:.2f}/{data['oil_temp']:.2f} "
+                    f"fire={'YES' if data['engine_fire'] else 'NO'} "
+                    f"btl={data['fire_bottles']}"
                 )
             time.sleep(self.fdm.get_delta_t())
 
