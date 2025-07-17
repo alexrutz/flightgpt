@@ -859,7 +859,12 @@ class NavigationSystem:
 
 
 class Autopilot:
-    """Heading, altitude and speed hold with basic system automation."""
+    """Heading, altitude and speed hold with basic system automation.
+
+    A small vertical navigation mode adjusts the target climb or descent
+    rate so that altitude constraints at the active waypoint are met
+    whenever the navigation system provides both a distance and an
+    altitude."""
 
     def __init__(
         self,
@@ -975,6 +980,18 @@ class Autopilot:
                 self.heading = nav_bearing
             if nav_alt is not None:
                 self.altitude = nav_alt
+            if (
+                nav_alt is not None
+                and nav_dist is not None
+                and nav_dist > 0.1
+                and speed > 30.0
+            ):
+                alt_error_wp = nav_alt - alt
+                vs_wp = alt_error_wp * speed / (nav_dist * 60.0)
+                self.vs_target_fpm = min(
+                    self.climb_vs_fpm,
+                    max(self.descent_vs_fpm, vs_wp),
+                )
 
         agl = f.get_property_value('position/h-agl-ft')
         on_ground = agl < 5.0
