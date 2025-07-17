@@ -44,6 +44,8 @@ An oil system tracks pressure and temperature and may cause engine
 failures when overheating or losing lubrication.
 A simple fire detection and suppression system automatically
 extinguishes engine fires using two bottles for added emergency depth.
+An exhaust temperature model now tracks engine heat and can cause
+failures when limits are exceeded for even more realism.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
