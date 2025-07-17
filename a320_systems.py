@@ -74,3 +74,141 @@ class FlightManagementSystem:
         if self.nav.index < len(self.nav.waypoints) - 1:
             self.nav.index += 1
 
+
+class AutopilotPanel:
+    """Minimal interface to the underlying autopilot."""
+
+    def __init__(self, ap):
+        self.ap = ap
+
+    def engage(self) -> None:
+        self.ap.engage()
+
+    def disengage(self) -> None:
+        self.ap.disengage()
+
+    def engage_autothrottle(self) -> None:
+        self.ap.autothrottle.engage()
+
+    def disengage_autothrottle(self) -> None:
+        self.ap.autothrottle.disengage()
+
+    def set_altitude(self, alt_ft: float) -> None:
+        self.ap.set_targets(altitude=alt_ft)
+
+    def set_heading(self, hdg_deg: float) -> None:
+        self.ap.set_targets(heading=hdg_deg)
+
+    def set_speed(self, speed_kt: float) -> None:
+        self.ap.set_targets(speed=speed_kt)
+
+    def set_vs(self, vs_fpm: float) -> None:
+        self.ap.set_targets(vs=vs_fpm)
+
+
+class RadioPanel:
+    """Very small radio management panel."""
+
+    def __init__(self):
+        self.com1_active = 118.0
+        self.com1_standby = 121.5
+        self.com2_active = 119.0
+        self.com2_standby = 122.5
+
+    def swap_com1(self) -> None:
+        self.com1_active, self.com1_standby = (
+            self.com1_standby,
+            self.com1_active,
+        )
+
+    def swap_com2(self) -> None:
+        self.com2_active, self.com2_standby = (
+            self.com2_standby,
+            self.com2_active,
+        )
+
+
+class Transponder:
+    """Simple transponder model."""
+
+    def __init__(self, code: int = 7000, mode: str = "standby"):
+        self.code = code
+        self.mode = mode  # off, standby, alt, on
+
+    def set_code(self, code: int) -> None:
+        self.code = max(0, min(code, 7777))
+
+    def set_mode(self, mode: str) -> None:
+        if mode in {"off", "standby", "alt", "on"}:
+            self.mode = mode
+
+
+class AutobrakePanel:
+    """Allow setting the autobrake level."""
+
+    def __init__(self, autobrake):
+        self.autobrake = autobrake
+
+    def set_level(self, level: str) -> None:
+        self.autobrake.set_level(level)
+
+
+class EnginePanel:
+    """Start the engines via the starter system."""
+
+    def __init__(self, starter):
+        self.starter = starter
+
+    def start(self) -> None:
+        self.starter.request_start()
+
+
+class APUPanel:
+    """Control the auxiliary power unit."""
+
+    def __init__(self, electrics):
+        self.electrics = electrics
+
+    def start(self) -> None:
+        self.electrics.start_apu()
+
+    def stop(self) -> None:
+        self.electrics.stop_apu()
+
+
+class ElectricalPanel:
+    """Monitor aircraft electrical power."""
+
+    def __init__(self, electrics):
+        self.electrics = electrics
+
+    def start_apu(self) -> None:
+        self.electrics.start_apu()
+
+    def stop_apu(self) -> None:
+        self.electrics.stop_apu()
+
+    @property
+    def charge(self) -> float:
+        return self.electrics.charge
+
+    @property
+    def rat_deployed(self) -> bool:
+        return self.electrics.rat_deployed()
+
+
+class FuelPanel:
+    """Display fuel quantities and manage crossfeed."""
+
+    def __init__(self, fuel):
+        self.fuel = fuel
+
+    def enable_crossfeed(self) -> None:
+        self.fuel.crossfeed_on = True
+
+    def disable_crossfeed(self) -> None:
+        self.fuel.crossfeed_on = False
+
+    def toggle_crossfeed(self) -> None:
+        self.fuel.crossfeed_on = not self.fuel.crossfeed_on
+
