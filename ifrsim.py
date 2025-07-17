@@ -2,6 +2,7 @@ import jsbsim
 import time
 import math
 import random
+from tcas import TCASSystem
 
 
 class PIDController:
@@ -1370,6 +1371,7 @@ class A320IFRSim:
         self.pitot = PitotSystem(self.environment)
         self.brakes = BrakeSystem()
         self.autobrake = AutobrakeSystem(self.brakes)
+        self.tcas = TCASSystem(self.fdm)
         self.anti_ice = AntiIceSystem(
             self.environment, self.engines, self.bleed, failure_chance=1e-4
         )
@@ -1472,6 +1474,7 @@ class A320IFRSim:
         stall = self.stall_warning.update()
         gpws = self.gpws.update()
         overspeed = self.overspeed.update()
+        tcas_alert = self.tcas.update()
         fuel = fuel_data['total_lbs']
         flap = self.fdm.get_property_value('fcs/flap-pos-norm')
         gear = self.fdm.get_property_value('gear/gear-pos-norm')
@@ -1530,6 +1533,7 @@ class A320IFRSim:
             'rat_deployed': self.electrics.rat_deployed(),
             'flap_operable': self.systems.flap_operable,
             'gear_operable': self.systems.gear_operable,
+            'tcas_alert': tcas_alert,
             'master_caution': caution,
         }
 
@@ -1537,6 +1541,10 @@ class A320IFRSim:
         for i in range(steps):
             data = self.step()
             if i % 50 == 0:
+                tcas_str = "NONE"
+                if data['tcas_alert'] is not None:
+                    t = data['tcas_alert']
+                    tcas_str = f"{t['bearing_deg']:.0f}deg {t['distance_nm']:.1f}nm"
                 print(
                     f"t={i*self.fdm.get_delta_t():.1f}s alt={data['altitude_ft']:.1f}ft "
                     f"spd={data['speed_kt']:.1f}kt hdg={data['heading_deg']:.1f} "
@@ -1567,7 +1575,8 @@ class A320IFRSim:
                     f"fire={'YES' if data['engine_fire'] else 'NO'} "
                     f"btl={data['fire_bottles']} "
                     f"rat={'DEP' if data['rat_deployed'] else 'STOW'} "
-                    f"mc={'ON' if data['master_caution'] else 'OFF'}"
+                    f"mc={'ON' if data['master_caution'] else 'OFF'} "
+                    f"tcas={tcas_str}"
                 )
             time.sleep(self.fdm.get_delta_t())
 
