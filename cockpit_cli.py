@@ -42,6 +42,7 @@ def print_status(status: dict) -> None:
         f"BELT {'ON' if status['cabin_signs']['seatbelt'] else 'OFF'} "
         f"SMOKE {'ON' if status['cabin_signs']['no_smoking'] else 'OFF'}"
         f" OXY {status['oxygen']['level']:.2f}"
+        f" TIME {status['clock']['time']}"
     )
     tcas = status.get("tcas_display", {})
     if tcas.get("alert"):

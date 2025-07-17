@@ -26,6 +26,7 @@ from a320_systems import (
     CabinSignsPanel,
     OxygenPanel,
     LightingPanel,
+    ClockPanel,
     CockpitSystems,
 )
 
@@ -52,6 +53,7 @@ class A320Cockpit:
         self.cabin_signs = CabinSignsPanel()
         self.oxygen_display = OxygenPanel()
         self.lights = LightingPanel()
+        self.clock = ClockPanel()
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
         self.pressurization = PressurizationDisplay()
@@ -100,6 +102,7 @@ class A320Cockpit:
         self.cabin_signs.update(data)
         self.oxygen_display.update(data)
         self.pressurization.update(data)
+        self.clock.update(data)
         warnings = {
             "stall": data["stall_warning"],
             "gpws": data["gpws_warning"],
@@ -214,6 +217,7 @@ class A320Cockpit:
                 "gear": data["gear"],
                 "speedbrake": self.sim.systems.speedbrake,
             },
+            "clock": {"time": self.clock.time_hms},
             "warnings": warnings,
         }
 

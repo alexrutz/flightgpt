@@ -70,6 +70,9 @@ Tracks the seatbelt and no smoking signs.
 ## Oxygen Panel
 Shows the remaining oxygen supply for reference.
 
+## Clock Panel
+Displays the elapsed simulation time.
+
 ## Lighting Panel
 Controls exterior lighting such as landing, taxi, navigation, strobe and beacon
 lights.

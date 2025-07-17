@@ -1403,6 +1403,7 @@ class A320IFRSim:
         self.target_altitude = 4000  # feet
         self.target_psi = 0  # heading degrees
         self.target_speed = 250  # knots
+        self.time_s = 0.0
         self.engines = EngineSystem(
             [
                 Engine(self.fdm, 0, failure_chance=5e-5, fire_chance=1e-5),
@@ -1481,6 +1482,7 @@ class A320IFRSim:
 
     def step(self):
         dt = self.fdm.get_delta_t()
+        self.time_s += dt
         self.environment.update(dt)
         self.starter.update(dt)
         if (
@@ -1591,6 +1593,7 @@ class A320IFRSim:
             "gear_operable": self.systems.gear_operable,
             "tcas_alert": tcas_alert,
             "master_caution": caution,
+            "time_s": self.time_s,
         }
 
     def run(self, steps=600):
