@@ -62,7 +62,9 @@ class FlightManagementSystem:
         self.nav.waypoints = list(wpts)
         self.nav.index = 0
 
-    def add_waypoint(self, lat_deg: float, lon_deg: float, alt_ft: Optional[float] = None) -> None:
+    def add_waypoint(
+        self, lat_deg: float, lon_deg: float, alt_ft: Optional[float] = None
+    ) -> None:
         self.nav.add_waypoint(lat_deg, lon_deg, alt_ft)
 
     def active_waypoint(self) -> Optional[tuple]:
@@ -234,3 +236,13 @@ class FlightControlPanel:
         """Set the speedbrake lever between 0.0 and 1.0."""
         self.systems.set_targets(speedbrake=max(0.0, min(setting, 1.0)))
 
+
+class WeatherRadarPanel:
+    """Display simple weather radar indications."""
+
+    def __init__(self, radar):
+        self.radar = radar
+        self.detecting = False
+
+    def update(self, data: dict) -> None:
+        self.detecting = data.get("weather_radar", False)

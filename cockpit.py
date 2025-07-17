@@ -16,9 +16,8 @@ from a320_systems import (
     ElectricalPanel,
     FuelPanel,
     FlightControlPanel,
+    WeatherRadarPanel,
 )
-
-
 
 
 class A320Cockpit:
@@ -35,6 +34,7 @@ class A320Cockpit:
         self.electrics = ElectricalPanel(self.sim.electrics)
         self.fuel = FuelPanel(self.sim.fuel)
         self.controls = FlightControlPanel(self.sim.systems)
+        self.weather_radar = WeatherRadarPanel(self.sim.weather_radar)
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
         self.fms = FlightManagementSystem(self.sim.nav)
@@ -44,6 +44,7 @@ class A320Cockpit:
         data = self.sim.step()
         self.pfd.update(data)
         self.ecam_display.update(data)
+        self.weather_radar.update(data)
         return {
             "pfd": {
                 "altitude_ft": self.pfd.altitude_ft,
@@ -87,6 +88,7 @@ class A320Cockpit:
                 "apu_running": self.sim.electrics.apu_running,
                 "rat_deployed": data["rat_deployed"],
             },
+            "weather_radar": self.weather_radar.detecting,
             "tcas": data["tcas_alert"],
             "navigation": {
                 "active_waypoint": self.fms.active_waypoint(),
@@ -127,4 +129,3 @@ if __name__ == "__main__":
             print(
                 f"ALT {pfd['altitude_ft']:.0f}FT SPD {pfd['speed_kt']:.1f}KT HDG {pfd['heading_deg']:.0f}"
             )
-
