@@ -38,6 +38,8 @@ A small brake model tracks heat build-up on the ground for a touch more
 system depth.
 A basic autobrake system now manages wheel braking after touchdown for
 more realistic landings.
+A small cockpit interface exposes autopilot, radio, transponder,
+autobrake, engine start and APU controls.
 A small navigation system lets the autopilot track a short series of
 waypoints for basic route following.
 Random generator failures may require the APU to power the aircraft and
