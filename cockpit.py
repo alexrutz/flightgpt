@@ -5,6 +5,37 @@
 from ifrsim import A320IFRSim
 
 
+class AutopilotPanel:
+    """Minimal interface to the underlying autopilot."""
+
+    def __init__(self, ap):
+        self.ap = ap
+
+    def engage(self) -> None:
+        self.ap.engage()
+
+    def disengage(self) -> None:
+        self.ap.disengage()
+
+    def engage_autothrottle(self) -> None:
+        self.ap.autothrottle.engage()
+
+    def disengage_autothrottle(self) -> None:
+        self.ap.autothrottle.disengage()
+
+    def set_altitude(self, alt_ft: float) -> None:
+        self.ap.set_targets(altitude=alt_ft)
+
+    def set_heading(self, hdg_deg: float) -> None:
+        self.ap.set_targets(heading=hdg_deg)
+
+    def set_speed(self, speed_kt: float) -> None:
+        self.ap.set_targets(speed=speed_kt)
+
+    def set_vs(self, vs_fpm: float) -> None:
+        self.ap.set_targets(vs=vs_fpm)
+
+
 class RadioPanel:
     """Very small radio management panel."""
 
@@ -49,6 +80,7 @@ class A320Cockpit:
         self.sim = A320IFRSim(root_dir=root_dir)
         self.radio = RadioPanel()
         self.transponder = Transponder()
+        self.autopilot = AutopilotPanel(self.sim.autopilot)
 
     def step(self):
         """Advance the underlying simulation and return a status snapshot."""
@@ -76,6 +108,14 @@ class A320Cockpit:
             "transponder": {
                 "code": self.transponder.code,
                 "mode": self.transponder.mode,
+            },
+            "autopilot": {
+                "engaged": self.sim.autopilot.engaged,
+                "autothrottle": self.sim.autopilot.autothrottle.engaged,
+                "target_altitude_ft": self.sim.autopilot.altitude,
+                "target_heading_deg": self.sim.autopilot.heading,
+                "target_speed_kt": self.sim.autopilot.speed,
+                "target_vs_fpm": self.sim.autopilot.vs_target_fpm,
             },
             "warnings": {
                 "stall": data["stall_warning"],

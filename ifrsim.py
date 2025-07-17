@@ -230,6 +230,15 @@ class Autothrottle:
         self.pid = PIDController(kp, ki, kd)
         self.target_speed = 0.0
         self.pitot = pitot
+        self.engaged = True
+
+    def engage(self) -> None:
+        """Activate autothrottle control."""
+        self.engaged = True
+
+    def disengage(self) -> None:
+        """Deactivate autothrottle control."""
+        self.engaged = False
 
     def set_target(self, speed_kt: float) -> None:
         """Set desired airspeed in knots."""
@@ -237,16 +246,19 @@ class Autothrottle:
 
     def update(self, dt: float, powered: bool = True) -> float:
         """Update engine throttle to hold the target speed."""
+        if not self.engaged or not powered:
+            # When disengaged simply update the engine toward its current
+            # target without changing it so manual thrust settings remain.
+            self.engine.update(dt)
+            return self.engine.throttle
+
         if self.pitot is not None:
             speed = self.pitot.indicated_speed(self.fdm)
         else:
             speed = self.fdm.get_property_value('velocities/vt-fps') / 1.68781
         throttle_cmd = self.pid.update(self.target_speed - speed, dt)
         throttle_cmd = max(0.0, min(throttle_cmd, 1.0))
-        if powered:
-            self.engine.set_target(throttle_cmd)
-        else:
-            self.engine.set_target(0.0)
+        self.engine.set_target(throttle_cmd)
         self.engine.update(dt)
         return self.engine.throttle
 
@@ -1121,6 +1133,7 @@ class Autopilot:
         self.pitot = pitot
         self.last_autobrake_active = False
         self.autothrottle = Autothrottle(fdm, engine, pitot=pitot)
+        self.engaged = True
         self.altitude = 0.0
         self.heading = 0.0
         self.speed = 0.0
@@ -1134,6 +1147,14 @@ class Autopilot:
         self.capture_window = capture_window
         self.climb_vs_fpm = climb_vs_fpm
         self.descent_vs_fpm = descent_vs_fpm
+
+    def engage(self) -> None:
+        """Activate the autopilot."""
+        self.engaged = True
+
+    def disengage(self) -> None:
+        """Deactivate the autopilot and release controls."""
+        self.engaged = False
 
     def set_targets(self, altitude=None, heading=None, speed=None, vs=None):
         if altitude is not None:
@@ -1258,25 +1279,34 @@ class Autopilot:
             self.vs_target_fpm = vs_target_fpm
         vs_target_fpm = max(min(vs_target_fpm, 3000.0), -3000.0)
         vs_error = vs_target_fpm / 60.0 - vs
-        pitch_cmd = max(min(self.vs_pid.update(vs_error, self.dt), 0.5), -0.5)
-        if powered:
-            f['fcs/elevator-cmd-norm'] = pitch_cmd * pressure
-        else:
-            f['fcs/elevator-cmd-norm'] = 0.0
+        pitch_cmd = 0.0
+        aileron_cmd = 0.0
+        rudder_cmd = 0.0
+        if self.engaged:
+            pitch_cmd = max(min(self.vs_pid.update(vs_error, self.dt), 0.5), -0.5)
+            if powered:
+                f['fcs/elevator-cmd-norm'] = pitch_cmd * pressure
+            else:
+                f['fcs/elevator-cmd-norm'] = 0.0
 
-        heading_error = (self.heading - psi + 180) % 360 - 180
-        aileron_cmd = max(min(self.hdg_pid.update(heading_error, self.dt), 0.3), -0.3)
-        if powered:
-            f['fcs/aileron-cmd-norm'] = aileron_cmd * pressure
-        else:
-            f['fcs/aileron-cmd-norm'] = 0.0
+            heading_error = (self.heading - psi + 180) % 360 - 180
+            aileron_cmd = max(min(self.hdg_pid.update(heading_error, self.dt), 0.3), -0.3)
+            if powered:
+                f['fcs/aileron-cmd-norm'] = aileron_cmd * pressure
+            else:
+                f['fcs/aileron-cmd-norm'] = 0.0
 
-        slip = f.get_property_value('aero/beta-rad')
-        rudder_cmd = max(min(self.yaw_pid.update(-slip, self.dt), 0.3), -0.3)
-        if powered:
-            f['fcs/rudder-cmd-norm'] = rudder_cmd * pressure
+            slip = f.get_property_value('aero/beta-rad')
+            rudder_cmd = max(min(self.yaw_pid.update(-slip, self.dt), 0.3), -0.3)
+            if powered:
+                f['fcs/rudder-cmd-norm'] = rudder_cmd * pressure
+            else:
+                f['fcs/rudder-cmd-norm'] = 0.0
         else:
-            f['fcs/rudder-cmd-norm'] = 0.0
+            if powered:
+                f['fcs/elevator-cmd-norm'] = 0.0
+                f['fcs/aileron-cmd-norm'] = 0.0
+                f['fcs/rudder-cmd-norm'] = 0.0
 
         throttle_cmd = self.autothrottle.update(self.dt, powered)
         active, ice = self.anti_ice.update(self.dt)
