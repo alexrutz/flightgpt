@@ -73,6 +73,39 @@ class Transponder:
             self.mode = mode
 
 
+class AutobrakePanel:
+    """Allow setting the autobrake level."""
+
+    def __init__(self, autobrake):
+        self.autobrake = autobrake
+
+    def set_level(self, level: str) -> None:
+        self.autobrake.set_level(level)
+
+
+class EnginePanel:
+    """Start the engines via the starter system."""
+
+    def __init__(self, starter):
+        self.starter = starter
+
+    def start(self) -> None:
+        self.starter.request_start()
+
+
+class APUPanel:
+    """Control the auxiliary power unit."""
+
+    def __init__(self, electrics):
+        self.electrics = electrics
+
+    def start(self) -> None:
+        self.electrics.start_apu()
+
+    def stop(self) -> None:
+        self.electrics.stop_apu()
+
+
 class A320Cockpit:
     """High level interface exposing the main cockpit systems."""
 
@@ -81,6 +114,9 @@ class A320Cockpit:
         self.radio = RadioPanel()
         self.transponder = Transponder()
         self.autopilot = AutopilotPanel(self.sim.autopilot)
+        self.autobrake = AutobrakePanel(self.sim.autobrake)
+        self.engine = EnginePanel(self.sim.starter)
+        self.apu = APUPanel(self.sim.electrics)
 
     def step(self):
         """Advance the underlying simulation and return a status snapshot."""
@@ -98,6 +134,8 @@ class A320Cockpit:
                 "oil_temp": data["oil_temp"],
                 "egt": data["egt"],
                 "fuel_lbs": data["fuel_lbs"],
+                "apu_flow_pph": data["apu_flow_lbs_hr"],
+                "fire_bottles": data["fire_bottles"],
             },
             "radio": {
                 "com1_active": self.radio.com1_active,
@@ -116,6 +154,8 @@ class A320Cockpit:
                 "target_heading_deg": self.sim.autopilot.heading,
                 "target_speed_kt": self.sim.autopilot.speed,
                 "target_vs_fpm": self.sim.autopilot.vs_target_fpm,
+                "autobrake_level": self.sim.autobrake.level,
+                "autobrake_active": data["autobrake_active"],
             },
             "warnings": {
                 "stall": data["stall_warning"],
