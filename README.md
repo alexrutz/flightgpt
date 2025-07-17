@@ -51,6 +51,8 @@ An exhaust temperature model now tracks engine heat and can cause
 failures when limits are exceeded for even more realism.
 A simple vertical navigation mode adjusts climb and descent rates to
 meet waypoint altitude constraints when following a route.
+An approach mode now tracks an ILS localizer and glideslope for hands-off
+landings.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 

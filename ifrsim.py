@@ -886,8 +886,57 @@ class NavigationSystem:
         if dist < 0.3 and self.index < len(self.waypoints) - 1:
             self.index += 1
             tgt_lat, tgt_lon, tgt_alt = self.waypoints[self.index]
-            bearing, dist = self._bearing_distance(lat, lon, tgt_lat, tgt_lon)
+        bearing, dist = self._bearing_distance(lat, lon, tgt_lat, tgt_lon)
         return bearing, dist, tgt_alt
+
+
+class ILSSystem:
+    """Very small ILS model providing localizer and glideslope deviation."""
+
+    def __init__(
+        self,
+        fdm,
+        runway_lat_deg,
+        runway_lon_deg,
+        runway_hdg_deg,
+        runway_alt_ft=0.0,
+        gs_deg=3.0,
+        range_nm=10.0,
+    ):
+        self.fdm = fdm
+        self.lat = runway_lat_deg
+        self.lon = runway_lon_deg
+        self.hdg = runway_hdg_deg
+        self.alt = runway_alt_ft
+        self.gs = gs_deg
+        self.range = range_nm
+
+    def _bearing_distance(self, lat1, lon1, lat2, lon2):
+        lat1 = math.radians(lat1)
+        lon1 = math.radians(lon1)
+        lat2 = math.radians(lat2)
+        lon2 = math.radians(lon2)
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        dist_nm = 3440.065 * c
+        y = math.sin(dlon) * math.cos(lat2)
+        x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+        bearing = (math.degrees(math.atan2(y, x)) + 360) % 360
+        return bearing, dist_nm
+
+    def update(self):
+        lat = self.fdm.get_property_value("position/lat-gc-deg")
+        lon = self.fdm.get_property_value("position/long-gc-deg")
+        alt = self.fdm.get_property_value("position/h-sl-ft")
+        bearing, dist = self._bearing_distance(lat, lon, self.lat, self.lon)
+        dev = (bearing - self.hdg + 180) % 360 - 180
+        target_alt = self.alt + math.tan(math.radians(self.gs)) * dist * 6076.12
+        gs_dev = alt - target_alt
+        if dist > self.range:
+            return None, None, dist
+        return dev, gs_dev, dist
 
 
 class Autopilot:
@@ -910,6 +959,7 @@ class Autopilot:
         brakes=None,
         nav=None,
         autobrake=None,
+        ils=None,
         capture_window=200.0,
         climb_vs_fpm=1500.0,
         descent_vs_fpm=-1500.0,
@@ -924,6 +974,7 @@ class Autopilot:
         self.brakes = brakes
         self.nav = nav
         self.autobrake = autobrake
+        self.ils = ils
         self.last_autobrake_active = False
         self.autothrottle = Autothrottle(fdm, engine)
         self.altitude = 0.0
@@ -1004,6 +1055,15 @@ class Autopilot:
         psi = f.get_property_value('attitude/psi-deg')
         speed = f.get_property_value('velocities/vt-fps') / 1.68781
         vs = f.get_property_value('velocities/h-dot-fps')  # ft/s
+
+        loc_dev = None
+        gs_dev = None
+        ils_dist = None
+        if self.ils is not None:
+            loc_dev, gs_dev, ils_dist = self.ils.update()
+            if loc_dev is not None:
+                self.heading = self.ils.hdg + loc_dev
+                self.altitude = alt - gs_dev
 
         nav_dist = None
         if self.nav is not None:
@@ -1089,6 +1149,9 @@ class Autopilot:
             oil_p,
             oil_t,
             egt_list,
+            loc_dev,
+            gs_dev,
+            ils_dist,
         )
 
 class A320IFRSim:
@@ -1131,6 +1194,7 @@ class A320IFRSim:
                 (37.60, -122.05, None),
             ],
         )
+        self.ils = ILSSystem(self.fdm, 37.60, -122.05, 270.0, 10.0)
         self.autopilot = Autopilot(
             self.fdm,
             dt,
@@ -1142,6 +1206,7 @@ class A320IFRSim:
             self.brakes,
             self.nav,
             self.autobrake,
+            self.ils,
         )
         self.init_conditions()
         self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
@@ -1187,6 +1252,9 @@ class A320IFRSim:
             oil_press,
             oil_temp,
             egt_list,
+            loc_dev,
+            gs_dev,
+            ils_dist,
         ) = self.autopilot.update()
         n1_avg = sum(n1_list) / len(n1_list)
         elec = self.electrics.update(n1_avg > 0.5, hyd_demand + 0.1, dt)
@@ -1232,6 +1300,9 @@ class A320IFRSim:
             'gpws_warning': gpws,
             'overspeed_warning': overspeed,
             'nav_dist_nm': nav_dist,
+            'ils_dist_nm': ils_dist,
+            'loc_dev_deg': loc_dev,
+            'gs_dev_ft': gs_dev,
             'brake_temp': brake_temp,
             'autobrake_active': autobrake_active,
             'oil_press': oil_press,
@@ -1266,6 +1337,9 @@ class A320IFRSim:
                     f"gpws={'YES' if data['gpws_warning'] else 'NO'} "
                     f"os={'YES' if data['overspeed_warning'] else 'NO'} "
                     f"d2wp={data['nav_dist_nm']:.1f}nm "
+                    f"d2ils={data['ils_dist_nm']:.1f}nm "
+                    f"loc={data['loc_dev_deg']:.1f} "
+                    f"gs={data['gs_dev_ft']:.0f} "
                     f"brk={data['brake_temp']:.2f} "
                     f"autobrk={'ON' if data['autobrake_active'] else 'OFF'} "
                     f"oil={data['oil_press']:.2f}/{data['oil_temp']:.2f} "
