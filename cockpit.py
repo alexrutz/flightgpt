@@ -22,6 +22,7 @@ from a320_systems import (
     NavigationDisplay,
     SystemsStatusPanel,
     OverheadPanel,
+    CabinSignsPanel,
 )
 
 
@@ -43,11 +44,20 @@ class A320Cockpit:
         self.nav_display = NavigationDisplay()
         self.system_status = SystemsStatusPanel()
         self.overhead = OverheadPanel()
+        self.cabin_signs = CabinSignsPanel()
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
         self.pressurization = PressurizationDisplay()
         self.warnings_panel = WarningPanel()
         self.fms = FlightManagementSystem(self.sim.nav)
+
+    def set_seatbelt_sign(self, on: bool) -> None:
+        """Toggle the seatbelt sign."""
+        self.cabin_signs.seatbelt_on = on
+
+    def set_no_smoking_sign(self, on: bool) -> None:
+        """Toggle the no smoking sign."""
+        self.cabin_signs.no_smoking_on = on
 
     def step(self):
         """Advance the underlying simulation and return a status snapshot."""
@@ -58,6 +68,7 @@ class A320Cockpit:
         self.nav_display.update(data)
         self.system_status.update(data)
         self.overhead.update(data)
+        self.cabin_signs.update(data)
         self.pressurization.update(data)
         warnings = {
             "stall": data["stall_warning"],
@@ -142,6 +153,10 @@ class A320Cockpit:
                 "altitude_ft": data["cabin_altitude_ft"],
                 "diff_psi": data["cabin_diff_psi"],
                 "temperature_c": data["cabin_temp_c"],
+            },
+            "cabin_signs": {
+                "seatbelt": self.cabin_signs.seatbelt_on,
+                "no_smoking": self.cabin_signs.no_smoking_on,
             },
             "controls": {
                 "flap": data["flap"],
