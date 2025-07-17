@@ -741,6 +741,38 @@ class AntiIceSystem:
         return self.active, self.ice
 
 
+class WingIceSystem:
+    """Track wing icing and allow a simple anti-ice function."""
+
+    def __init__(
+        self,
+        environment,
+        bleed=None,
+        melt_rate=0.05,
+        acc_rate=0.1,
+    ):
+        self.environment = environment
+        self.bleed = bleed
+        self.melt_rate = melt_rate
+        self.acc_rate = acc_rate
+        self.active = False
+        self.ice = 0.0
+
+    def set_active(self, state: bool) -> None:
+        self.active = state
+
+    def update(self, dt: float) -> tuple[bool, float]:
+        if self.environment.is_icing() and not self.active:
+            self.ice += self.acc_rate * dt
+        else:
+            melt = self.melt_rate
+            if self.active and self.bleed is not None:
+                melt *= self.bleed.pressure
+            self.ice -= melt * dt
+        self.ice = max(0.0, min(1.0, self.ice))
+        return self.active, self.ice
+
+
 class PitotSystem:
     """Simulate pitot tube icing and heating."""
 
@@ -813,15 +845,19 @@ class OxygenSystem:
 class StallWarningSystem:
     """Very simple stall warning based on AoA and airspeed."""
 
-    def __init__(self, fdm, alpha_deg=12.0, speed_kt=120.0):
+    def __init__(self, fdm, alpha_deg=12.0, speed_kt=120.0, wing_ice=None):
         self.fdm = fdm
         self.alpha_thresh = math.radians(alpha_deg)
         self.speed_thresh = speed_kt
+        self.wing_ice = wing_ice
 
     def update(self):
         alpha = self.fdm.get_property_value('aero/alpha-rad')
         speed = self.fdm.get_property_value('velocities/vt-fps') / 1.68781
-        return alpha > self.alpha_thresh or speed < self.speed_thresh
+        speed_thresh = self.speed_thresh
+        if self.wing_ice is not None:
+            speed_thresh += 40.0 * self.wing_ice.ice
+        return alpha > self.alpha_thresh or speed < speed_thresh
 
 
 class GroundProximityWarningSystem:
@@ -986,6 +1022,7 @@ class Autopilot:
         electrics,
         environment,
         anti_ice,
+        wing_ice=None,
         brakes=None,
         nav=None,
         autobrake=None,
@@ -1002,6 +1039,7 @@ class Autopilot:
         self.electrics = electrics
         self.environment = environment
         self.anti_ice = anti_ice
+        self.wing_ice = wing_ice
         self.brakes = brakes
         self.nav = nav
         self.autobrake = autobrake
@@ -1080,6 +1118,8 @@ class Autopilot:
         # Auto anti-ice when icing conditions are detected
         icing = self.environment.is_icing()
         self.anti_ice.set_active(icing)
+        if self.wing_ice is not None:
+            self.wing_ice.set_active(icing)
         if self.pitot is not None:
             self.pitot.set_heat(icing)
 
@@ -1166,6 +1206,10 @@ class Autopilot:
 
         throttle_cmd = self.autothrottle.update(self.dt, powered)
         active, ice = self.anti_ice.update(self.dt)
+        wing_active = False
+        wing_ice = 0.0
+        if self.wing_ice is not None:
+            wing_active, wing_ice = self.wing_ice.update(self.dt)
 
         n1_list = self.engine.n1_list()
         egt_list = self.engine.egt_list()
@@ -1183,6 +1227,8 @@ class Autopilot:
             demand,
             active,
             ice,
+            wing_active,
+            wing_ice,
             nav_dist,
             brake_temp,
             self.last_autobrake_active,
@@ -1221,9 +1267,10 @@ class A320IFRSim:
         self.anti_ice = AntiIceSystem(
             self.environment, self.engines, self.bleed, failure_chance=1e-4
         )
+        self.wing_ice = WingIceSystem(self.environment, self.bleed)
         self.pressurization = PressurizationSystem(self.fdm, self.bleed)
         self.oxygen = OxygenSystem()
-        self.stall_warning = StallWarningSystem(self.fdm)
+        self.stall_warning = StallWarningSystem(self.fdm, wing_ice=self.wing_ice)
         self.gpws = GroundProximityWarningSystem(self.fdm)
         self.overspeed = OverspeedWarningSystem(self.fdm)
         self.fire_suppr = FireSuppressionSystem(self.engines)
@@ -1244,6 +1291,7 @@ class A320IFRSim:
             self.electrics,
             self.environment,
             self.anti_ice,
+            self.wing_ice,
             self.brakes,
             self.nav,
             self.autobrake,
@@ -1288,6 +1336,8 @@ class A320IFRSim:
             hyd_demand,
             anti_ice_on,
             ice_accum,
+            wing_anti_ice_on,
+            wing_ice_accum,
             nav_dist,
             brake_temp,
             autobrake_active,
@@ -1329,6 +1379,8 @@ class A320IFRSim:
             'elec_charge': elec,
             'anti_ice_on': anti_ice_on,
             'ice_accum': ice_accum,
+            'wing_anti_ice_on': wing_anti_ice_on,
+            'wing_ice_accum': wing_ice_accum,
             'cabin_altitude_ft': cabin_alt,
             'cabin_diff_psi': cabin_diff,
             'bleed_press': bleed_press,
@@ -1375,6 +1427,7 @@ class A320IFRSim:
                     f"xfeed={'ON' if data['crossfeed'] else 'OFF'} "
                     f"oxy={data['oxygen_level']:.2f} "
                     f"ice={data['ice_accum']:.2f} {'ON' if data['anti_ice_on'] else 'OFF'} "
+                    f"wingice={data['wing_ice_accum']:.2f} {'ON' if data['wing_anti_ice_on'] else 'OFF'} "
                     f"stall={'YES' if data['stall_warning'] else 'NO'} "
                     f"gpws={'YES' if data['gpws_warning'] else 'NO'} "
                     f"os={'YES' if data['overspeed_warning'] else 'NO'} "

@@ -55,6 +55,8 @@ A simple vertical navigation mode adjusts climb and descent rates to
 meet waypoint altitude constraints when following a route.
 An approach mode now tracks an ILS localizer and glideslope for hands-off
 landings.
+Wing icing is now simulated and increases stall speed unless the wing
+anti-ice system is active.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 
