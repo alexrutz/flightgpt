@@ -222,6 +222,7 @@ class EngineSystem:
     def fire(self) -> bool:
         return any(e.fire for e in self.engines)
 
+
 class Autothrottle:
     """Maintain target airspeed by commanding engine thrust."""
 
@@ -256,7 +257,7 @@ class Autothrottle:
         if self.pitot is not None:
             speed = self.pitot.indicated_speed(self.fdm)
         else:
-            speed = self.fdm.get_property_value('velocities/vt-fps') / 1.68781
+            speed = self.fdm.get_property_value("velocities/vt-fps") / 1.68781
         throttle_cmd = self.pid.update(self.target_speed - speed, dt)
         throttle_cmd = max(0.0, min(throttle_cmd, 1.0))
         self.engine.set_target(throttle_cmd)
@@ -267,7 +268,9 @@ class Autothrottle:
 class HydraulicSystem:
     """Very small hydraulic system model with basic failures."""
 
-    def __init__(self, pump_rate=0.3, usage_factor=0.5, leak_rate=0.01, failure_chance=0.0):
+    def __init__(
+        self, pump_rate=0.3, usage_factor=0.5, leak_rate=0.01, failure_chance=0.0
+    ):
         self.pressure = 1.0
         self.pump_rate = pump_rate
         self.usage_factor = usage_factor
@@ -312,22 +315,22 @@ class AutobrakeSystem:
     """Simple autobrake logic with selectable levels."""
 
     LEVELS = {
-        'off': 0.0,
-        'low': 0.3,
-        'med': 0.6,
-        'high': 1.0,
+        "off": 0.0,
+        "low": 0.3,
+        "med": 0.6,
+        "high": 1.0,
     }
 
     def __init__(
         self,
         brakes: BrakeSystem,
-        level: str = 'off',
+        level: str = "off",
         arm_speed_kt: float = 70.0,
         disarm_speed_kt: float = 20.0,
         throttle_threshold: float = 0.3,
     ):
         self.brakes = brakes
-        self.level = level if level in self.LEVELS else 'off'
+        self.level = level if level in self.LEVELS else "off"
         self.arm_speed = arm_speed_kt
         self.disarm_speed = disarm_speed_kt
         self.throttle_threshold = throttle_threshold
@@ -339,7 +342,7 @@ class AutobrakeSystem:
             self.active = False
 
     def update(self, on_ground: bool, speed_kt: float, throttle: float) -> bool:
-        if self.level == 'off':
+        if self.level == "off":
             self.active = False
         else:
             if (
@@ -450,7 +453,7 @@ class SystemManager:
                 max_df = self.flap_rate * dt * pressure
                 d_flap = max(min(d_flap, max_df), -max_df)
                 self.flap += d_flap
-        self.fdm['fcs/flap-cmd-norm'] = self.flap
+        self.fdm["fcs/flap-cmd-norm"] = self.flap
 
         if self.gear_operable:
             if speed_kt > self.gear_overspeed_kt and abs(d_gear) > 0.0:
@@ -459,12 +462,12 @@ class SystemManager:
                 max_dg = self.gear_rate * dt * pressure
                 d_gear = max(min(d_gear, max_dg), -max_dg)
                 self.gear += d_gear
-        self.fdm['gear/gear-cmd-norm'] = self.gear
+        self.fdm["gear/gear-cmd-norm"] = self.gear
 
         max_ds = self.speedbrake_rate * dt * pressure
         d_speedbrake = max(min(d_speedbrake, max_ds), -max_ds)
         self.speedbrake += d_speedbrake
-        self.fdm['fcs/speedbrake-cmd-norm'] = self.speedbrake
+        self.fdm["fcs/speedbrake-cmd-norm"] = self.speedbrake
 
         return pressure, demand
 
@@ -493,13 +496,13 @@ class FuelSystem:
         self.crossfeed_rate_pph = crossfeed_rate_pph
         self.balance_threshold_lbs = balance_threshold_lbs
         self.crossfeed_on = False
-        self.prev_used_0 = fdm.get_property_value('propulsion/engine/fuel-used-lbs')
-        self.prev_used_1 = fdm.get_property_value('propulsion/engine[1]/fuel-used-lbs')
+        self.prev_used_0 = fdm.get_property_value("propulsion/engine/fuel-used-lbs")
+        self.prev_used_1 = fdm.get_property_value("propulsion/engine[1]/fuel-used-lbs")
 
     def update(self):
         dt = self.fdm.get_delta_t()
-        used_0 = self.fdm.get_property_value('propulsion/engine/fuel-used-lbs')
-        used_1 = self.fdm.get_property_value('propulsion/engine[1]/fuel-used-lbs')
+        used_0 = self.fdm.get_property_value("propulsion/engine/fuel-used-lbs")
+        used_1 = self.fdm.get_property_value("propulsion/engine[1]/fuel-used-lbs")
         flow_0 = (used_0 - self.prev_used_0) / dt * 3600.0
         flow_1 = (used_1 - self.prev_used_1) / dt * 3600.0
         if self.engine is not None:
@@ -508,8 +511,8 @@ class FuelSystem:
         self.prev_used_0 = used_0
         self.prev_used_1 = used_1
 
-        left = self.fdm.get_property_value('propulsion/tank/contents-lbs')
-        right = self.fdm.get_property_value('propulsion/tank[1]/contents-lbs')
+        left = self.fdm.get_property_value("propulsion/tank/contents-lbs")
+        right = self.fdm.get_property_value("propulsion/tank[1]/contents-lbs")
 
         # Automatic crossfeed to keep tanks balanced
         diff = left - right
@@ -528,25 +531,25 @@ class FuelSystem:
                 right -= xfeed_amt
             if abs(left - right) < self.balance_threshold_lbs * 0.2:
                 self.crossfeed_on = False
-            self.fdm['propulsion/tank/contents-lbs'] = left
-            self.fdm['propulsion/tank[1]/contents-lbs'] = right
+            self.fdm["propulsion/tank/contents-lbs"] = left
+            self.fdm["propulsion/tank[1]/contents-lbs"] = right
 
         apu_flow = 0.0
         if self.electrics and self.electrics.apu_running:
             apu_flow = self.apu_flow_pph
             burn = apu_flow / 3600.0 * dt
             left = max(left - burn, 0.0)
-            self.fdm['propulsion/tank/contents-lbs'] = left
+            self.fdm["propulsion/tank/contents-lbs"] = left
 
         total = left + right
         return {
-            'left_lbs': left,
-            'right_lbs': right,
-            'total_lbs': total,
-            'flow0_pph': flow_0,
-            'flow1_pph': flow_1,
-            'apu_flow_pph': apu_flow,
-            'crossfeed': self.crossfeed_on,
+            "left_lbs": left,
+            "right_lbs": right,
+            "total_lbs": total,
+            "flow0_pph": flow_0,
+            "flow1_pph": flow_1,
+            "apu_flow_pph": apu_flow,
+            "crossfeed": self.crossfeed_on,
         }
 
 
@@ -565,9 +568,15 @@ class RamAirTurbine:
         self.deployed = False
 
     def update(self, electrics, generator_available: bool, dt: float) -> bool:
-        if not self.deployed and electrics.charge < self.deploy_threshold and not generator_available:
+        if (
+            not self.deployed
+            and electrics.charge < self.deploy_threshold
+            and not generator_available
+        ):
             self.deployed = True
-        if self.deployed and (electrics.charge > self.retract_threshold or generator_available):
+        if self.deployed and (
+            electrics.charge > self.retract_threshold or generator_available
+        ):
             self.deployed = False
         if self.deployed:
             electrics.charge = min(1.0, electrics.charge + self.charge_rate * dt)
@@ -721,15 +730,17 @@ class Environment:
         base = 10.0 * math.sin(self.t / 30.0)
         gust = self.gust_strength * math.sin(self.t * 10.0)
         gust += random.uniform(-self.gust_strength, self.gust_strength) * 0.1
-        self.fdm['atmosphere/wind-north-fps'] = 0.0
-        self.fdm['atmosphere/wind-east-fps'] = base + gust
+        self.fdm["atmosphere/wind-north-fps"] = 0.0
+        self.fdm["atmosphere/wind-east-fps"] = base + gust
 
         vert_base = 2.0 * math.sin(self.t / 40.0)
         vert_gust = self.vertical_strength * math.sin(self.t * 12.0)
-        vert_gust += random.uniform(-self.vertical_strength, self.vertical_strength) * 0.1
-        self.fdm['atmosphere/wind-down-fps'] = vert_base + vert_gust
+        vert_gust += (
+            random.uniform(-self.vertical_strength, self.vertical_strength) * 0.1
+        )
+        self.fdm["atmosphere/wind-down-fps"] = vert_base + vert_gust
 
-        alt = self.fdm.get_property_value('position/h-sl-ft')
+        alt = self.fdm.get_property_value("position/h-sl-ft")
         self.temperature_c = self.base_temp - 0.002 * alt
         if random.random() < 0.01:
             self.precip = random.uniform(0.2, 1.0)
@@ -833,7 +844,7 @@ class PitotSystem:
         return self.clog
 
     def indicated_speed(self, fdm) -> float:
-        speed = fdm.get_property_value('velocities/vt-fps') / 1.68781
+        speed = fdm.get_property_value("velocities/vt-fps") / 1.68781
         return speed * (1.0 - 0.5 * self.clog)
 
 
@@ -845,13 +856,13 @@ class PressurizationSystem:
         self.bleed = bleed
         self.target_diff = target_diff
         self.leak_rate = leak_rate
-        self.cabin_alt = fdm.get_property_value('position/h-sl-ft')
+        self.cabin_alt = fdm.get_property_value("position/h-sl-ft")
 
     def _pressure_at_alt(self, alt):
         return 14.7 * math.exp(-alt / 20000.0)
 
     def update(self, dt):
-        alt = self.fdm.get_property_value('position/h-sl-ft')
+        alt = self.fdm.get_property_value("position/h-sl-ft")
         amb = self._pressure_at_alt(alt)
         cab = self._pressure_at_alt(self.cabin_alt)
         diff = cab - amb
@@ -920,8 +931,8 @@ class StallWarningSystem:
         self.wing_ice = wing_ice
 
     def update(self):
-        alpha = self.fdm.get_property_value('aero/alpha-rad')
-        speed = self.fdm.get_property_value('velocities/vt-fps') / 1.68781
+        alpha = self.fdm.get_property_value("aero/alpha-rad")
+        speed = self.fdm.get_property_value("velocities/vt-fps") / 1.68781
         speed_thresh = self.speed_thresh
         if self.wing_ice is not None:
             speed_thresh += 40.0 * self.wing_ice.ice
@@ -937,8 +948,8 @@ class GroundProximityWarningSystem:
         self.sink_thresh = -abs(sink_rate_fpm)
 
     def update(self):
-        agl = self.fdm.get_property_value('position/h-agl-ft')
-        vs_fpm = self.fdm.get_property_value('velocities/h-dot-fps') * 60.0
+        agl = self.fdm.get_property_value("position/h-agl-ft")
+        vs_fpm = self.fdm.get_property_value("velocities/h-dot-fps") * 60.0
         return agl < self.alt_thresh and vs_fpm < self.sink_thresh
 
 
@@ -950,8 +961,20 @@ class OverspeedWarningSystem:
         self.limit = limit_kt
 
     def update(self):
-        speed = self.fdm.get_property_value('velocities/vt-fps') / 1.68781
+        speed = self.fdm.get_property_value("velocities/vt-fps") / 1.68781
         return speed > self.limit
+
+
+class WeatherRadarSystem:
+    """Detect heavy precipitation along the flight path."""
+
+    def __init__(self, environment, threshold=0.5):
+        self.environment = environment
+        self.threshold = threshold
+
+    def update(self) -> bool:
+        """Return True when precipitation intensity exceeds the threshold."""
+        return self.environment.precip >= self.threshold
 
 
 class FireSuppressionSystem:
@@ -1021,19 +1044,24 @@ class NavigationSystem:
         lon2 = math.radians(lon2)
         dlon = lon2 - lon1
         dlat = lat2 - lat1
-        a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        a = (
+            math.sin(dlat / 2) ** 2
+            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        )
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         dist_nm = 3440.065 * c
         y = math.sin(dlon) * math.cos(lat2)
-        x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+        x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(
+            lat2
+        ) * math.cos(dlon)
         bearing = (math.degrees(math.atan2(y, x)) + 360) % 360
         return bearing, dist_nm
 
     def update(self):
         if not self.waypoints or self.index >= len(self.waypoints):
             return None, None, None
-        lat = self.fdm.get_property_value('position/lat-gc-deg')
-        lon = self.fdm.get_property_value('position/long-gc-deg')
+        lat = self.fdm.get_property_value("position/lat-gc-deg")
+        lon = self.fdm.get_property_value("position/long-gc-deg")
         tgt_lat, tgt_lon, tgt_alt = self.waypoints[self.index]
         bearing, dist = self._bearing_distance(lat, lon, tgt_lat, tgt_lon)
         if dist < 0.3 and self.index < len(self.waypoints) - 1:
@@ -1071,11 +1099,16 @@ class ILSSystem:
         lon2 = math.radians(lon2)
         dlon = lon2 - lon1
         dlat = lat2 - lat1
-        a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        a = (
+            math.sin(dlat / 2) ** 2
+            + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        )
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         dist_nm = 3440.065 * c
         y = math.sin(dlon) * math.cos(lat2)
-        x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dlon)
+        x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(
+            lat2
+        ) * math.cos(dlon)
         bearing = (math.degrees(math.atan2(y, x)) + 360) % 360
         return bearing, dist_nm
 
@@ -1167,7 +1200,9 @@ class Autopilot:
         if altitude is not None:
             if altitude != self.altitude:
                 self.vs_target_fpm = (
-                    self.climb_vs_fpm if altitude > self.altitude else self.descent_vs_fpm
+                    self.climb_vs_fpm
+                    if altitude > self.altitude
+                    else self.descent_vs_fpm
                 )
             self.altitude = altitude
         if heading is not None:
@@ -1231,13 +1266,13 @@ class Autopilot:
         f = self.fdm
         if self.pitot is not None:
             self.pitot.update(self.dt)
-        alt = f.get_property_value('position/h-sl-ft')
-        psi = f.get_property_value('attitude/psi-deg')
+        alt = f.get_property_value("position/h-sl-ft")
+        psi = f.get_property_value("attitude/psi-deg")
         if self.pitot is not None:
             speed = self.pitot.indicated_speed(f)
         else:
-            speed = f.get_property_value('velocities/vt-fps') / 1.68781
-        vs = f.get_property_value('velocities/h-dot-fps')  # ft/s
+            speed = f.get_property_value("velocities/vt-fps") / 1.68781
+        vs = f.get_property_value("velocities/h-dot-fps")  # ft/s
 
         loc_dev = None
         gs_dev = None
@@ -1268,7 +1303,7 @@ class Autopilot:
                     max(self.descent_vs_fpm, vs_wp),
                 )
 
-        agl = f.get_property_value('position/h-agl-ft')
+        agl = f.get_property_value("position/h-agl-ft")
         on_ground = agl < 5.0
         self._manage_systems(alt, speed, on_ground)
         pump_power = self.engine.n1() > 0.2 or self.electrics.apu_running
@@ -1294,28 +1329,30 @@ class Autopilot:
         if self.engaged:
             pitch_cmd = max(min(self.vs_pid.update(vs_error, self.dt), 0.5), -0.5)
             if powered:
-                f['fcs/elevator-cmd-norm'] = pitch_cmd * pressure
+                f["fcs/elevator-cmd-norm"] = pitch_cmd * pressure
             else:
-                f['fcs/elevator-cmd-norm'] = 0.0
+                f["fcs/elevator-cmd-norm"] = 0.0
 
             heading_error = (self.heading - psi + 180) % 360 - 180
-            aileron_cmd = max(min(self.hdg_pid.update(heading_error, self.dt), 0.3), -0.3)
+            aileron_cmd = max(
+                min(self.hdg_pid.update(heading_error, self.dt), 0.3), -0.3
+            )
             if powered:
-                f['fcs/aileron-cmd-norm'] = aileron_cmd * pressure
+                f["fcs/aileron-cmd-norm"] = aileron_cmd * pressure
             else:
-                f['fcs/aileron-cmd-norm'] = 0.0
+                f["fcs/aileron-cmd-norm"] = 0.0
 
-            slip = f.get_property_value('aero/beta-rad')
+            slip = f.get_property_value("aero/beta-rad")
             rudder_cmd = max(min(self.yaw_pid.update(-slip, self.dt), 0.3), -0.3)
             if powered:
-                f['fcs/rudder-cmd-norm'] = rudder_cmd * pressure
+                f["fcs/rudder-cmd-norm"] = rudder_cmd * pressure
             else:
-                f['fcs/rudder-cmd-norm'] = 0.0
+                f["fcs/rudder-cmd-norm"] = 0.0
         else:
             if powered:
-                f['fcs/elevator-cmd-norm'] = 0.0
-                f['fcs/aileron-cmd-norm'] = 0.0
-                f['fcs/rudder-cmd-norm'] = 0.0
+                f["fcs/elevator-cmd-norm"] = 0.0
+                f["fcs/aileron-cmd-norm"] = 0.0
+                f["fcs/rudder-cmd-norm"] = 0.0
 
         throttle_cmd = self.autothrottle.update(self.dt, powered)
         active, ice = self.anti_ice.update(self.dt)
@@ -1355,20 +1392,23 @@ class Autopilot:
             self.systems.gear_operable,
         )
 
+
 class A320IFRSim:
-    def __init__(self, root_dir='jsbsim-master', dt=0.02):
+    def __init__(self, root_dir="jsbsim-master", dt=0.02):
         self.fdm = jsbsim.FGFDMExec(None, None)
         self.fdm.disable_output()
         self.fdm.set_root_dir(root_dir)
-        self.fdm.load_model('A320')
+        self.fdm.load_model("A320")
         self.fdm.set_dt(dt)
         self.target_altitude = 4000  # feet
         self.target_psi = 0  # heading degrees
         self.target_speed = 250  # knots
-        self.engines = EngineSystem([
-            Engine(self.fdm, 0, failure_chance=5e-5, fire_chance=1e-5),
-            Engine(self.fdm, 1, failure_chance=5e-5, fire_chance=1e-5),
-        ])
+        self.engines = EngineSystem(
+            [
+                Engine(self.fdm, 0, failure_chance=5e-5, fire_chance=1e-5),
+                Engine(self.fdm, 1, failure_chance=5e-5, fire_chance=1e-5),
+            ]
+        )
         self.systems = SystemManager(self.fdm, failure_chance=1e-4)
         self.rat = RamAirTurbine()
         self.electrics = ElectricSystem(generator_failure_chance=5e-5, rat=self.rat)
@@ -1390,6 +1430,7 @@ class A320IFRSim:
         self.stall_warning = StallWarningSystem(self.fdm, wing_ice=self.wing_ice)
         self.gpws = GroundProximityWarningSystem(self.fdm)
         self.overspeed = OverspeedWarningSystem(self.fdm)
+        self.weather_radar = WeatherRadarSystem(self.environment)
         self.fire_suppr = FireSuppressionSystem(self.engines)
         self.master_caution = MasterCautionSystem()
         self.nav = NavigationSystem(
@@ -1417,21 +1458,23 @@ class A320IFRSim:
             self.pitot,
         )
         self.init_conditions()
-        self.autopilot.set_targets(self.target_altitude, self.target_psi, self.target_speed)
+        self.autopilot.set_targets(
+            self.target_altitude, self.target_psi, self.target_speed
+        )
 
     def init_conditions(self):
         f = self.fdm
-        f['ic/altitude-ft'] = self.target_altitude
-        f['ic/psi-true-deg'] = self.target_psi
-        f['ic/u-fps'] = self.target_speed * 1.68781  # convert kts to fps
-        f['ic/vt-fps'] = self.target_speed * 1.68781
-        f['ic/vc-kts'] = self.target_speed
-        f['ic/h-sl-ft'] = self.target_altitude
-        f['ic/long-gc-deg'] = -122.0
-        f['ic/lat-gc-deg'] = 37.615
-        f['ic/weight-lbs'] = 130000
-        f['propulsion/engine/set-running'] = 0
-        f['propulsion/engine[1]/set-running'] = 0
+        f["ic/altitude-ft"] = self.target_altitude
+        f["ic/psi-true-deg"] = self.target_psi
+        f["ic/u-fps"] = self.target_speed * 1.68781  # convert kts to fps
+        f["ic/vt-fps"] = self.target_speed * 1.68781
+        f["ic/vc-kts"] = self.target_speed
+        f["ic/h-sl-ft"] = self.target_altitude
+        f["ic/long-gc-deg"] = -122.0
+        f["ic/lat-gc-deg"] = 37.615
+        f["ic/weight-lbs"] = 130000
+        f["propulsion/engine/set-running"] = 0
+        f["propulsion/engine[1]/set-running"] = 0
         f.run_ic()
         self.electrics.start_apu()
         self.starter.request_start()
@@ -1440,7 +1483,10 @@ class A320IFRSim:
         dt = self.fdm.get_delta_t()
         self.environment.update(dt)
         self.starter.update(dt)
-        if any(e.failed for e in self.engines.engines) and self.starter.state == "running":
+        if (
+            any(e.failed for e in self.engines.engines)
+            and self.starter.state == "running"
+        ):
             self.starter.request_start()
         (
             alt,
@@ -1473,8 +1519,8 @@ class A320IFRSim:
         cabin_alt, cabin_diff, bleed_press = self.pressurization.update(dt)
         cabin_temp = self.cabin_temp.update(dt)
         fuel_data = self.fuel.update()
-        left_fuel = fuel_data['left_lbs']
-        right_fuel = fuel_data['right_lbs']
+        left_fuel = fuel_data["left_lbs"]
+        right_fuel = fuel_data["right_lbs"]
         oxygen = self.oxygen.update(cabin_alt, dt)
         self.fire_suppr.update(dt)
         fire = self.engines.fire
@@ -1482,67 +1528,69 @@ class A320IFRSim:
         stall = self.stall_warning.update()
         gpws = self.gpws.update()
         overspeed = self.overspeed.update()
+        radar_alert = self.weather_radar.update()
         tcas_alert = self.tcas.update()
-        fuel = fuel_data['total_lbs']
-        flap = self.fdm.get_property_value('fcs/flap-pos-norm')
-        gear = self.fdm.get_property_value('gear/gear-pos-norm')
-        vs_fpm = self.fdm.get_property_value('velocities/h-dot-fps') * 60.0
+        fuel = fuel_data["total_lbs"]
+        flap = self.fdm.get_property_value("fcs/flap-pos-norm")
+        gear = self.fdm.get_property_value("gear/gear-pos-norm")
+        vs_fpm = self.fdm.get_property_value("velocities/h-dot-fps") * 60.0
 
         # Update master caution status
-        self.master_caution.set_warning('stall', stall)
-        self.master_caution.set_warning('gpws', gpws)
-        self.master_caution.set_warning('overspeed', overspeed)
-        self.master_caution.set_warning('fire', fire)
+        self.master_caution.set_warning("stall", stall)
+        self.master_caution.set_warning("gpws", gpws)
+        self.master_caution.set_warning("overspeed", overspeed)
+        self.master_caution.set_warning("fire", fire)
         caution = self.master_caution.is_active()
         self.fdm.run()
         return {
-            'altitude_ft': alt,
-            'speed_kt': speed,
-            'heading_deg': psi,
-            'vs_fpm': vs_fpm,
-            'pitch_cmd': pitch_cmd,
-            'aileron_cmd': aileron_cmd,
-            'throttle_cmd': throttle_cmd,
-            'n1': n1_list,
-            'flap': flap,
-            'gear': gear,
-            'hyd_press': pressure,
-            'elec_charge': elec,
-            'anti_ice_on': anti_ice_on,
-            'ice_accum': ice_accum,
-            'wing_anti_ice_on': wing_anti_ice_on,
-            'wing_ice_accum': wing_ice_accum,
-            'cabin_altitude_ft': cabin_alt,
-            'cabin_diff_psi': cabin_diff,
-            'cabin_temp_c': cabin_temp,
-            'bleed_press': bleed_press,
-            'fuel_lbs': fuel,
-            'fuel_left_lbs': left_fuel,
-            'fuel_right_lbs': right_fuel,
-            'fuel_flow_lbs_hr_eng1': fuel_data['flow0_pph'],
-            'fuel_flow_lbs_hr_eng2': fuel_data['flow1_pph'],
-            'apu_flow_lbs_hr': fuel_data['apu_flow_pph'],
-            'crossfeed': fuel_data['crossfeed'],
-            'oxygen_level': oxygen,
-            'stall_warning': stall,
-            'gpws_warning': gpws,
-            'overspeed_warning': overspeed,
-            'nav_dist_nm': nav_dist,
-            'ils_dist_nm': ils_dist,
-            'loc_dev_deg': loc_dev,
-            'gs_dev_ft': gs_dev,
-            'brake_temp': brake_temp,
-            'autobrake_active': autobrake_active,
-            'oil_press': oil_press,
-            'oil_temp': oil_temp,
-            'egt': egt_list,
-            'engine_fire': fire,
-            'fire_bottles': bottles,
-            'rat_deployed': self.electrics.rat_deployed(),
-            'flap_operable': self.systems.flap_operable,
-            'gear_operable': self.systems.gear_operable,
-            'tcas_alert': tcas_alert,
-            'master_caution': caution,
+            "altitude_ft": alt,
+            "speed_kt": speed,
+            "heading_deg": psi,
+            "vs_fpm": vs_fpm,
+            "pitch_cmd": pitch_cmd,
+            "aileron_cmd": aileron_cmd,
+            "throttle_cmd": throttle_cmd,
+            "n1": n1_list,
+            "flap": flap,
+            "gear": gear,
+            "hyd_press": pressure,
+            "elec_charge": elec,
+            "anti_ice_on": anti_ice_on,
+            "ice_accum": ice_accum,
+            "wing_anti_ice_on": wing_anti_ice_on,
+            "wing_ice_accum": wing_ice_accum,
+            "cabin_altitude_ft": cabin_alt,
+            "cabin_diff_psi": cabin_diff,
+            "cabin_temp_c": cabin_temp,
+            "bleed_press": bleed_press,
+            "fuel_lbs": fuel,
+            "fuel_left_lbs": left_fuel,
+            "fuel_right_lbs": right_fuel,
+            "fuel_flow_lbs_hr_eng1": fuel_data["flow0_pph"],
+            "fuel_flow_lbs_hr_eng2": fuel_data["flow1_pph"],
+            "apu_flow_lbs_hr": fuel_data["apu_flow_pph"],
+            "crossfeed": fuel_data["crossfeed"],
+            "oxygen_level": oxygen,
+            "stall_warning": stall,
+            "gpws_warning": gpws,
+            "overspeed_warning": overspeed,
+            "weather_radar": radar_alert,
+            "nav_dist_nm": nav_dist,
+            "ils_dist_nm": ils_dist,
+            "loc_dev_deg": loc_dev,
+            "gs_dev_ft": gs_dev,
+            "brake_temp": brake_temp,
+            "autobrake_active": autobrake_active,
+            "oil_press": oil_press,
+            "oil_temp": oil_temp,
+            "egt": egt_list,
+            "engine_fire": fire,
+            "fire_bottles": bottles,
+            "rat_deployed": self.electrics.rat_deployed(),
+            "flap_operable": self.systems.flap_operable,
+            "gear_operable": self.systems.gear_operable,
+            "tcas_alert": tcas_alert,
+            "master_caution": caution,
         }
 
     def run(self, steps=600):
@@ -1550,8 +1598,8 @@ class A320IFRSim:
             data = self.step()
             if i % 50 == 0:
                 tcas_str = "NONE"
-                if data['tcas_alert'] is not None:
-                    t = data['tcas_alert']
+                if data["tcas_alert"] is not None:
+                    t = data["tcas_alert"]
                     tcas_str = f"{t['bearing_deg']:.0f}deg {t['distance_nm']:.1f}nm"
                 print(
                     f"t={i*self.fdm.get_delta_t():.1f}s alt={data['altitude_ft']:.1f}ft "
@@ -1588,6 +1636,7 @@ class A320IFRSim:
                 )
             time.sleep(self.fdm.get_delta_t())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sim = A320IFRSim()
     sim.run(300)

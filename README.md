@@ -26,6 +26,8 @@ An automatic autothrottle system now maintains the commanded airspeed for
 more realistic power management. The latest build adds an overspeed warning
 with automatic speedbrake deployment and introduces random hydraulic pump
 failures for additional system depth.
+A simple weather radar now detects heavy precipitation and reports it via
+the cockpit interface.
 A new bleed air model now ties engine and APU performance to cabin
 pressurization and anti-ice efficiency for greater realism.
 Hydraulic pumps now depend on engine or APU power, so losing all sources
