@@ -22,6 +22,11 @@ HELP_TEXT = """Available commands:
   engines start       - start the engines
   seatbelt on|off     - toggle the seatbelt sign
   nosmoke on|off      - toggle the no smoking sign
+  landlight on|off    - toggle the landing light
+  taxilight on|off    - toggle the taxi light
+  navlight on|off     - toggle the navigation lights
+  strobelight on|off  - toggle the strobe light
+  beacon on|off       - toggle the beacon light
   quit                - exit the program"""
 
 
@@ -165,6 +170,46 @@ def main() -> None:
                 cp.set_no_smoking_sign(False)
             else:
                 print("Usage: nosmoke on|off")
+            continue
+        if cmd == "landlight" and args:
+            if args[0] == "on":
+                cp.set_landing_light(True)
+            elif args[0] == "off":
+                cp.set_landing_light(False)
+            else:
+                print("Usage: landlight on|off")
+            continue
+        if cmd == "taxilight" and args:
+            if args[0] == "on":
+                cp.set_taxi_light(True)
+            elif args[0] == "off":
+                cp.set_taxi_light(False)
+            else:
+                print("Usage: taxilight on|off")
+            continue
+        if cmd == "navlight" and args:
+            if args[0] == "on":
+                cp.set_nav_light(True)
+            elif args[0] == "off":
+                cp.set_nav_light(False)
+            else:
+                print("Usage: navlight on|off")
+            continue
+        if cmd == "strobelight" and args:
+            if args[0] == "on":
+                cp.set_strobe_light(True)
+            elif args[0] == "off":
+                cp.set_strobe_light(False)
+            else:
+                print("Usage: strobelight on|off")
+            continue
+        if cmd == "beacon" and args:
+            if args[0] == "on":
+                cp.set_beacon_light(True)
+            elif args[0] == "off":
+                cp.set_beacon_light(False)
+            else:
+                print("Usage: beacon on|off")
             continue
         if cmd == "apu" and args:
             if args[0] == "start":

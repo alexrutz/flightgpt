@@ -74,6 +74,8 @@ overspeed limits and a small cabin temperature model uses bleed air to
 keep the cabin comfortable.
 Seatbelt and no smoking signs can be toggled from the cockpit interface
 to simulate passenger announcements.
+Exterior lights such as landing, taxi and strobe lights can be
+controlled via the CLI for basic lighting management.
 No graphics are provided – the goal is to use external hardware like LED
 displays or buttons for cockpit interaction.
 

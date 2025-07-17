@@ -23,6 +23,7 @@ from a320_systems import (
     SystemsStatusPanel,
     OverheadPanel,
     CabinSignsPanel,
+    LightingPanel,
 )
 
 
@@ -45,6 +46,7 @@ class A320Cockpit:
         self.system_status = SystemsStatusPanel()
         self.overhead = OverheadPanel()
         self.cabin_signs = CabinSignsPanel()
+        self.lights = LightingPanel()
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
         self.pressurization = PressurizationDisplay()
@@ -58,6 +60,26 @@ class A320Cockpit:
     def set_no_smoking_sign(self, on: bool) -> None:
         """Toggle the no smoking sign."""
         self.cabin_signs.no_smoking_on = on
+
+    def set_landing_light(self, on: bool) -> None:
+        """Toggle the landing light."""
+        self.lights.set_landing(on)
+
+    def set_taxi_light(self, on: bool) -> None:
+        """Toggle the taxi light."""
+        self.lights.set_taxi(on)
+
+    def set_nav_light(self, on: bool) -> None:
+        """Toggle the navigation lights."""
+        self.lights.set_nav(on)
+
+    def set_strobe_light(self, on: bool) -> None:
+        """Toggle the strobe light."""
+        self.lights.set_strobe(on)
+
+    def set_beacon_light(self, on: bool) -> None:
+        """Toggle the beacon light."""
+        self.lights.set_beacon(on)
 
     def step(self):
         """Advance the underlying simulation and return a status snapshot."""
@@ -157,6 +179,13 @@ class A320Cockpit:
             "cabin_signs": {
                 "seatbelt": self.cabin_signs.seatbelt_on,
                 "no_smoking": self.cabin_signs.no_smoking_on,
+            },
+            "lights": {
+                "landing": self.lights.landing_on,
+                "taxi": self.lights.taxi_on,
+                "nav": self.lights.nav_on,
+                "strobe": self.lights.strobe_on,
+                "beacon": self.lights.beacon_on,
             },
             "controls": {
                 "flap": data["flap"],
