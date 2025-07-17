@@ -970,6 +970,25 @@ class FireSuppressionSystem:
         return self.bottles
 
 
+class MasterCautionSystem:
+    """Aggregate warnings from multiple subsystems."""
+
+    def __init__(self):
+        self.warnings: dict[str, bool] = {}
+
+    def set_warning(self, name: str, state: bool) -> None:
+        """Register or update a warning condition by name."""
+        self.warnings[name] = state
+
+    def is_active(self) -> bool:
+        """Return True if any registered warning is active."""
+        return any(self.warnings.values())
+
+    def reset(self) -> None:
+        """Clear all stored warnings."""
+        self.warnings.clear()
+
+
 class NavigationSystem:
     """Very small waypoint-based navigation model."""
 
@@ -1332,6 +1351,7 @@ class A320IFRSim:
         self.gpws = GroundProximityWarningSystem(self.fdm)
         self.overspeed = OverspeedWarningSystem(self.fdm)
         self.fire_suppr = FireSuppressionSystem(self.engines)
+        self.master_caution = MasterCautionSystem()
         self.nav = NavigationSystem(
             self.fdm,
             [
@@ -1424,6 +1444,13 @@ class A320IFRSim:
         flap = self.fdm.get_property_value('fcs/flap-pos-norm')
         gear = self.fdm.get_property_value('gear/gear-pos-norm')
         vs_fpm = self.fdm.get_property_value('velocities/h-dot-fps') * 60.0
+
+        # Update master caution status
+        self.master_caution.set_warning('stall', stall)
+        self.master_caution.set_warning('gpws', gpws)
+        self.master_caution.set_warning('overspeed', overspeed)
+        self.master_caution.set_warning('fire', fire)
+        caution = self.master_caution.is_active()
         self.fdm.run()
         return {
             'altitude_ft': alt,
@@ -1469,6 +1496,7 @@ class A320IFRSim:
             'rat_deployed': self.electrics.rat_deployed(),
             'flap_operable': self.systems.flap_operable,
             'gear_operable': self.systems.gear_operable,
+            'master_caution': caution,
         }
 
     def run(self, steps=600):
@@ -1504,7 +1532,8 @@ class A320IFRSim:
                     f"oil={data['oil_press']:.2f}/{data['oil_temp']:.2f} "
                     f"fire={'YES' if data['engine_fire'] else 'NO'} "
                     f"btl={data['fire_bottles']} "
-                    f"rat={'DEP' if data['rat_deployed'] else 'STOW'}"
+                    f"rat={'DEP' if data['rat_deployed'] else 'STOW'} "
+                    f"mc={'ON' if data['master_caution'] else 'OFF'}"
                 )
             time.sleep(self.fdm.get_delta_t())
 
