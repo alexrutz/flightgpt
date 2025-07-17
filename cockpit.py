@@ -7,6 +7,8 @@ from a320_systems import (
     PrimaryFlightDisplay,
     EngineDisplay,
     FlightManagementSystem,
+    PressurizationDisplay,
+    WarningPanel,
     AutopilotPanel,
     RadioPanel,
     Transponder,
@@ -37,6 +39,8 @@ class A320Cockpit:
         self.weather_radar = WeatherRadarPanel(self.sim.weather_radar)
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
+        self.pressurization = PressurizationDisplay()
+        self.warnings_panel = WarningPanel()
         self.fms = FlightManagementSystem(self.sim.nav)
 
     def step(self):
@@ -45,6 +49,16 @@ class A320Cockpit:
         self.pfd.update(data)
         self.ecam_display.update(data)
         self.weather_radar.update(data)
+        self.pressurization.update(data)
+        warnings = {
+            "stall": data["stall_warning"],
+            "gpws": data["gpws_warning"],
+            "overspeed": data["overspeed_warning"],
+            "fire": data["engine_fire"],
+            "tcas": data["tcas_alert"],
+            "master_caution": data["master_caution"],
+        }
+        self.warnings_panel.update({"warnings": warnings})
         return {
             "pfd": {
                 "altitude_ft": self.pfd.altitude_ft,
@@ -109,14 +123,7 @@ class A320Cockpit:
                 "gear": data["gear"],
                 "speedbrake": self.sim.systems.speedbrake,
             },
-            "warnings": {
-                "stall": data["stall_warning"],
-                "gpws": data["gpws_warning"],
-                "overspeed": data["overspeed_warning"],
-                "fire": data["engine_fire"],
-                "tcas": data["tcas_alert"],
-                "master_caution": data["master_caution"],
-            },
+            "warnings": warnings,
         }
 
 
