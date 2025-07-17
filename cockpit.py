@@ -3,6 +3,7 @@
 # represent a simplified A320 cockpit.
 
 from ifrsim import A320IFRSim
+from a320_systems import PrimaryFlightDisplay, EngineDisplay, FlightManagementSystem
 
 
 class AutopilotPanel:
@@ -156,25 +157,30 @@ class A320Cockpit:
         self.apu = APUPanel(self.sim.electrics)
         self.electrics = ElectricalPanel(self.sim.electrics)
         self.fuel = FuelPanel(self.sim.fuel)
+        self.pfd = PrimaryFlightDisplay()
+        self.ecam_display = EngineDisplay()
+        self.fms = FlightManagementSystem(self.sim.nav)
 
     def step(self):
         """Advance the underlying simulation and return a status snapshot."""
         data = self.sim.step()
+        self.pfd.update(data)
+        self.ecam_display.update(data)
         return {
             "pfd": {
-                "altitude_ft": data["altitude_ft"],
-                "speed_kt": data["speed_kt"],
-                "heading_deg": data["heading_deg"],
-                "vs_fpm": data["vs_fpm"],
+                "altitude_ft": self.pfd.altitude_ft,
+                "speed_kt": self.pfd.speed_kt,
+                "heading_deg": self.pfd.heading_deg,
+                "vs_fpm": self.pfd.vs_fpm,
             },
             "ecam": {
-                "n1": data["n1"],
-                "oil_press": data["oil_press"],
-                "oil_temp": data["oil_temp"],
-                "egt": data["egt"],
-                "fuel_lbs": data["fuel_lbs"],
-                "apu_flow_pph": data["apu_flow_lbs_hr"],
-                "fire_bottles": data["fire_bottles"],
+                "n1": self.ecam_display.n1,
+                "oil_press": self.ecam_display.oil_press,
+                "oil_temp": self.ecam_display.oil_temp,
+                "egt": self.ecam_display.egt,
+                "fuel_lbs": self.ecam_display.fuel_lbs,
+                "apu_flow_pph": self.ecam_display.apu_flow_pph,
+                "fire_bottles": self.ecam_display.fire_bottles,
             },
             "radio": {
                 "com1_active": self.radio.com1_active,
@@ -203,6 +209,9 @@ class A320Cockpit:
                 "rat_deployed": data["rat_deployed"],
             },
             "tcas": data["tcas_alert"],
+            "navigation": {
+                "active_waypoint": self.fms.active_waypoint(),
+            },
             "fuel": {
                 "left_lbs": data["fuel_left_lbs"],
                 "right_lbs": data["fuel_right_lbs"],
