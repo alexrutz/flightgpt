@@ -365,3 +365,31 @@ class LightingPanel:
 
     def set_beacon(self, on: bool) -> None:
         self.beacon_on = on
+
+
+@dataclass
+class CockpitSystems:
+    """Aggregate all major cockpit panels for convenience."""
+
+    pfd: PrimaryFlightDisplay = field(default_factory=PrimaryFlightDisplay)
+    engine: EngineDisplay = field(default_factory=EngineDisplay)
+    pressurization: PressurizationDisplay = field(default_factory=PressurizationDisplay)
+    warnings: WarningPanel = field(default_factory=WarningPanel)
+    navigation: NavigationDisplay = field(default_factory=NavigationDisplay)
+    systems: SystemsStatusPanel = field(default_factory=SystemsStatusPanel)
+    overhead: OverheadPanel = field(default_factory=OverheadPanel)
+    cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
+    lights: LightingPanel = field(default_factory=LightingPanel)
+
+    def update(self, data: dict) -> None:
+        """Update all panels from a simulation snapshot."""
+        self.pfd.update(data)
+        self.engine.update(data)
+        self.pressurization.update(data)
+        self.warnings.update({"warnings": data.get("warnings", {})})
+        self.navigation.update(data)
+        self.systems.update(data)
+        self.overhead.update(data)
+        self.cabin.update(data)
+        # Light states are stored in the panel itself, so no update needed
+
