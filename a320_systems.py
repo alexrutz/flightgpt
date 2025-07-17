@@ -143,6 +143,32 @@ class AutopilotPanel:
         self.ap.set_targets(vs=vs_fpm)
 
 
+@dataclass
+class AutopilotDisplay:
+    """Show current autopilot and autobrake status."""
+
+    engaged: bool = False
+    autothrottle: bool = False
+    target_altitude_ft: float = 0.0
+    target_heading_deg: float = 0.0
+    target_speed_kt: float = 0.0
+    target_vs_fpm: float = 0.0
+    autobrake_level: str = "off"
+    autobrake_active: bool = False
+    automation: bool = False
+
+    def update(self, data: dict) -> None:
+        self.engaged = data.get("engaged", False)
+        self.autothrottle = data.get("autothrottle", False)
+        self.target_altitude_ft = data.get("target_altitude_ft", 0.0)
+        self.target_heading_deg = data.get("target_heading_deg", 0.0)
+        self.target_speed_kt = data.get("target_speed_kt", 0.0)
+        self.target_vs_fpm = data.get("target_vs_fpm", 0.0)
+        self.autobrake_level = data.get("autobrake_level", "off")
+        self.autobrake_active = data.get("autobrake_active", False)
+        self.automation = data.get("automation", False)
+
+
 class RadioPanel:
     """Very small radio management panel."""
 
@@ -397,6 +423,7 @@ class CockpitSystems:
     warnings: WarningPanel = field(default_factory=WarningPanel)
     navigation: NavigationDisplay = field(default_factory=NavigationDisplay)
     tcas: TCASDisplay = field(default_factory=TCASDisplay)
+    autopilot: AutopilotDisplay = field(default_factory=AutopilotDisplay)
     systems: SystemsStatusPanel = field(default_factory=SystemsStatusPanel)
     overhead: OverheadPanel = field(default_factory=OverheadPanel)
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
@@ -410,6 +437,7 @@ class CockpitSystems:
         self.warnings.update({"warnings": data.get("warnings", {})})
         self.navigation.update(data)
         self.tcas.update(data)
+        self.autopilot.update(data.get("autopilot", {}))
         self.systems.update(data)
         self.overhead.update(data)
         self.cabin.update(data)
