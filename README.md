@@ -82,8 +82,10 @@ The new `CockpitSystems` helper class aggregates all panels so they can be
 updated from a single simulation data snapshot.
 The primary flight display now exposes simple flight director pitch and roll
 commands from the autopilot for external indicators.
-No graphics are provided – the goal is to use external hardware like LED
-displays or buttons for cockpit interaction.
+No graphics are provided – the goal is to use external hardware like LED displays or buttons for cockpit interaction.
+
+## Cockpit systems
+See [COCKPIT_SYSTEMS.md](COCKPIT_SYSTEMS.md) for an overview of the panels and displays modeled in the cockpit.
 
 ## Quick start
 
