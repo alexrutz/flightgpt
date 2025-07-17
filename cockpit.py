@@ -106,6 +106,43 @@ class APUPanel:
         self.electrics.stop_apu()
 
 
+class ElectricalPanel:
+    """Monitor aircraft electrical power."""
+
+    def __init__(self, electrics):
+        self.electrics = electrics
+
+    def start_apu(self) -> None:
+        self.electrics.start_apu()
+
+    def stop_apu(self) -> None:
+        self.electrics.stop_apu()
+
+    @property
+    def charge(self) -> float:
+        return self.electrics.charge
+
+    @property
+    def rat_deployed(self) -> bool:
+        return self.electrics.rat_deployed()
+
+
+class FuelPanel:
+    """Display fuel quantities and manage crossfeed."""
+
+    def __init__(self, fuel):
+        self.fuel = fuel
+
+    def enable_crossfeed(self) -> None:
+        self.fuel.crossfeed_on = True
+
+    def disable_crossfeed(self) -> None:
+        self.fuel.crossfeed_on = False
+
+    def toggle_crossfeed(self) -> None:
+        self.fuel.crossfeed_on = not self.fuel.crossfeed_on
+
+
 class A320Cockpit:
     """High level interface exposing the main cockpit systems."""
 
@@ -117,6 +154,8 @@ class A320Cockpit:
         self.autobrake = AutobrakePanel(self.sim.autobrake)
         self.engine = EnginePanel(self.sim.starter)
         self.apu = APUPanel(self.sim.electrics)
+        self.electrics = ElectricalPanel(self.sim.electrics)
+        self.fuel = FuelPanel(self.sim.fuel)
 
     def step(self):
         """Advance the underlying simulation and return a status snapshot."""
@@ -156,6 +195,23 @@ class A320Cockpit:
                 "target_vs_fpm": self.sim.autopilot.vs_target_fpm,
                 "autobrake_level": self.sim.autobrake.level,
                 "autobrake_active": data["autobrake_active"],
+            },
+            "hydraulics": {"pressure": data["hyd_press"]},
+            "electrical": {
+                "charge": data["elec_charge"],
+                "apu_running": self.sim.electrics.apu_running,
+                "rat_deployed": data["rat_deployed"],
+            },
+            "fuel": {
+                "left_lbs": data["fuel_left_lbs"],
+                "right_lbs": data["fuel_right_lbs"],
+                "total_lbs": data["fuel_lbs"],
+                "crossfeed": data["crossfeed"],
+            },
+            "cabin": {
+                "altitude_ft": data["cabin_altitude_ft"],
+                "diff_psi": data["cabin_diff_psi"],
+                "temperature_c": data["cabin_temp_c"],
             },
             "warnings": {
                 "stall": data["stall_warning"],

@@ -1463,6 +1463,8 @@ class A320IFRSim:
         cabin_alt, cabin_diff, bleed_press = self.pressurization.update(dt)
         cabin_temp = self.cabin_temp.update(dt)
         fuel_data = self.fuel.update()
+        left_fuel = fuel_data['left_lbs']
+        right_fuel = fuel_data['right_lbs']
         oxygen = self.oxygen.update(cabin_alt, dt)
         self.fire_suppr.update(dt)
         fire = self.engines.fire
@@ -1504,6 +1506,8 @@ class A320IFRSim:
             'cabin_temp_c': cabin_temp,
             'bleed_press': bleed_press,
             'fuel_lbs': fuel,
+            'fuel_left_lbs': left_fuel,
+            'fuel_right_lbs': right_fuel,
             'fuel_flow_lbs_hr_eng1': fuel_data['flow0_pph'],
             'fuel_flow_lbs_hr_eng2': fuel_data['flow1_pph'],
             'apu_flow_lbs_hr': fuel_data['apu_flow_pph'],
