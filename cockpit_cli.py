@@ -33,7 +33,7 @@ HELP_TEXT = """Available commands:
 def print_status(status: dict) -> None:
     pfd = status["pfd"]
     ecam = status["ecam"]
-    print(
+    line = (
         f"ALT {pfd['altitude_ft']:.0f}FT "
         f"SPD {pfd['speed_kt']:.1f}KT "
         f"HDG {pfd['heading_deg']:.0f} "
@@ -42,6 +42,14 @@ def print_status(status: dict) -> None:
         f"BELT {'ON' if status['cabin_signs']['seatbelt'] else 'OFF'} "
         f"SMOKE {'ON' if status['cabin_signs']['no_smoking'] else 'OFF'}"
     )
+    tcas = status.get("tcas_display", {})
+    if tcas.get("alert"):
+        line += (
+            f" TCAS {tcas['bearing_deg']:.0f}deg"
+            f" {tcas['distance_nm']:.1f}NM"
+            f" {tcas['alt_diff_ft']:.0f}FT"
+        )
+    print(line)
 
 
 def main() -> None:

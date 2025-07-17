@@ -20,6 +20,7 @@ from a320_systems import (
     FlightControlPanel,
     WeatherRadarPanel,
     NavigationDisplay,
+    TCASDisplay,
     SystemsStatusPanel,
     OverheadPanel,
     CabinSignsPanel,
@@ -43,6 +44,7 @@ class A320Cockpit:
         self.controls = FlightControlPanel(self.sim.systems)
         self.weather_radar = WeatherRadarPanel(self.sim.weather_radar)
         self.nav_display = NavigationDisplay()
+        self.tcas_display = TCASDisplay()
         self.system_status = SystemsStatusPanel()
         self.overhead = OverheadPanel()
         self.cabin_signs = CabinSignsPanel()
@@ -88,6 +90,7 @@ class A320Cockpit:
         self.ecam_display.update(data)
         self.weather_radar.update(data)
         self.nav_display.update(data)
+        self.tcas_display.update(data)
         self.system_status.update(data)
         self.overhead.update(data)
         self.cabin_signs.update(data)
@@ -161,7 +164,12 @@ class A320Cockpit:
                 "crossfeed": self.overhead.crossfeed,
             },
             "weather_radar": self.weather_radar.detecting,
-            "tcas": data["tcas_alert"],
+            "tcas_display": {
+                "alert": self.tcas_display.alert,
+                "bearing_deg": self.tcas_display.bearing_deg,
+                "distance_nm": self.tcas_display.distance_nm,
+                "alt_diff_ft": self.tcas_display.alt_diff_ft,
+            },
             "navigation": {
                 "active_waypoint": self.fms.active_waypoint(),
             },
