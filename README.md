@@ -30,6 +30,8 @@ A new bleed air model now ties engine and APU performance to cabin
 pressurization and anti-ice efficiency for greater realism.
 Engines now start using bleed air from the APU and take a few seconds to
 reach idle for more authentic startup behaviour.
+A small twin-engine model now tracks each engine separately, allowing
+individual failures and more realistic system behaviour.
 A small brake model tracks heat build-up on the ground for a touch more
 system depth.
 A small navigation system lets the autopilot track a short series of
