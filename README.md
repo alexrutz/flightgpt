@@ -51,6 +51,8 @@ A simple fire detection and suppression system automatically
 extinguishes engine fires using two bottles for added emergency depth.
 An exhaust temperature model now tracks engine heat and can cause
 failures when limits are exceeded for even more realism.
+A simple master caution system now highlights active warnings from
+multiple subsystems.
 A simple vertical navigation mode adjusts climb and descent rates to
 meet waypoint altitude constraints when following a route.
 An approach mode now tracks an ILS localizer and glideslope for hands-off
