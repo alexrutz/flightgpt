@@ -67,6 +67,9 @@ Indicates APU running state and fuel crossfeed status.
 ## Cabin Signs Panel
 Tracks the seatbelt and no smoking signs.
 
+## Oxygen Panel
+Shows the remaining oxygen supply for reference.
+
 ## Lighting Panel
 Controls exterior lighting such as landing, taxi, navigation, strobe and beacon
 lights.
