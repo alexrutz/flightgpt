@@ -428,6 +428,23 @@ class LightingPanel:
 
 
 @dataclass
+class ClockPanel:
+    """Simple chronometer showing elapsed simulation time."""
+
+    time_s: float = 0.0
+
+    def update(self, data: dict) -> None:
+        self.time_s = data.get("time_s", self.time_s)
+
+    @property
+    def time_hms(self) -> str:
+        h = int(self.time_s // 3600)
+        m = int(self.time_s % 3600 // 60)
+        s = int(self.time_s % 60)
+        return f"{h:02}:{m:02}:{s:02}"
+
+
+@dataclass
 class CockpitSystems:
     """Aggregate all major cockpit panels for convenience."""
 
@@ -443,6 +460,7 @@ class CockpitSystems:
     oxygen: 'OxygenPanel' = field(default_factory=lambda: OxygenPanel())
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
     lights: LightingPanel = field(default_factory=LightingPanel)
+    clock: ClockPanel = field(default_factory=ClockPanel)
 
     def update(self, data: dict) -> None:
         """Update all panels from a simulation snapshot."""
@@ -457,5 +475,6 @@ class CockpitSystems:
         self.overhead.update(data)
         self.oxygen.update(data)
         self.cabin.update(data)
+        self.clock.update(data)
         # Light states are stored in the panel itself, so no update needed
 

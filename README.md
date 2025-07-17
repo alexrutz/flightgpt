@@ -80,6 +80,7 @@ Exterior lights such as landing, taxi and strobe lights can be
 controlled via the CLI for basic lighting management.
 An oxygen panel now displays the remaining supply for reference during
 high-altitude flight.
+A small clock shows the elapsed simulation time for reference.
 The new `CockpitSystems` helper class aggregates all panels so they can be
 updated from a single simulation data snapshot.
 The primary flight display now exposes simple flight director pitch and roll
