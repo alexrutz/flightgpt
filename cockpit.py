@@ -24,6 +24,7 @@ from a320_systems import (
     SystemsStatusPanel,
     OverheadPanel,
     CabinSignsPanel,
+    OxygenPanel,
     LightingPanel,
     CockpitSystems,
 )
@@ -49,6 +50,7 @@ class A320Cockpit:
         self.system_status = SystemsStatusPanel()
         self.overhead = OverheadPanel()
         self.cabin_signs = CabinSignsPanel()
+        self.oxygen_display = OxygenPanel()
         self.lights = LightingPanel()
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
@@ -96,6 +98,7 @@ class A320Cockpit:
         self.system_status.update(data)
         self.overhead.update(data)
         self.cabin_signs.update(data)
+        self.oxygen_display.update(data)
         self.pressurization.update(data)
         warnings = {
             "stall": data["stall_warning"],
@@ -194,6 +197,7 @@ class A320Cockpit:
                 "diff_psi": data["cabin_diff_psi"],
                 "temperature_c": data["cabin_temp_c"],
             },
+            "oxygen": {"level": data["oxygen_level"]},
             "cabin_signs": {
                 "seatbelt": self.cabin_signs.seatbelt_on,
                 "no_smoking": self.cabin_signs.no_smoking_on,

@@ -78,6 +78,8 @@ Seatbelt and no smoking signs can be toggled from the cockpit interface
 to simulate passenger announcements.
 Exterior lights such as landing, taxi and strobe lights can be
 controlled via the CLI for basic lighting management.
+An oxygen panel now displays the remaining supply for reference during
+high-altitude flight.
 The new `CockpitSystems` helper class aggregates all panels so they can be
 updated from a single simulation data snapshot.
 The primary flight display now exposes simple flight director pitch and roll

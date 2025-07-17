@@ -378,6 +378,16 @@ class OverheadPanel:
 
 
 @dataclass
+class OxygenPanel:
+    """Display remaining oxygen supply."""
+
+    level: float = 0.0
+
+    def update(self, data: dict) -> None:
+        self.level = data.get("oxygen_level", 0.0)
+
+
+@dataclass
 class CabinSignsPanel:
     """Manage seatbelt and no smoking signs."""
 
@@ -430,6 +440,7 @@ class CockpitSystems:
     autopilot: AutopilotDisplay = field(default_factory=AutopilotDisplay)
     systems: SystemsStatusPanel = field(default_factory=SystemsStatusPanel)
     overhead: OverheadPanel = field(default_factory=OverheadPanel)
+    oxygen: 'OxygenPanel' = field(default_factory=lambda: OxygenPanel())
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
     lights: LightingPanel = field(default_factory=LightingPanel)
 
@@ -444,6 +455,7 @@ class CockpitSystems:
         self.autopilot.update(data.get("autopilot", {}))
         self.systems.update(data)
         self.overhead.update(data)
+        self.oxygen.update(data)
         self.cabin.update(data)
         # Light states are stored in the panel itself, so no update needed
 
