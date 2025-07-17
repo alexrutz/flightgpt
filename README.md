@@ -40,6 +40,9 @@ A small navigation system lets the autopilot track a short series of
 waypoints for basic route following.
 Random generator failures may require the APU to power the aircraft and
 severe icing can now lead to engine flameouts that need a restart.
+An emergency ram air turbine automatically deploys when both the generator
+and APU fail, keeping essential systems powered until normal power is
+restored.
 An oil system tracks pressure and temperature and may cause engine
 failures when overheating or losing lubrication.
 A simple fire detection and suppression system automatically
