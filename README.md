@@ -81,6 +81,12 @@ pip install jsbsim
 python ifrsim.py
 ```
 
+3. Launch the interactive cockpit CLI:
+
+```bash
+python cockpit_cli.py
+```
+
 The output shows altitude, airspeed, heading and remaining fuel every
 few seconds.  The aircraft model definition is stored in `data/A320`.
 
