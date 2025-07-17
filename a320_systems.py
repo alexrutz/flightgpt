@@ -281,3 +281,47 @@ class WeatherRadarPanel:
 
     def update(self, data: dict) -> None:
         self.detecting = data.get("weather_radar", False)
+
+
+@dataclass
+class NavigationDisplay:
+    """Show navigation and ILS information on the ND."""
+
+    distance_nm: float = 0.0
+    ils_distance_nm: float = 0.0
+    loc_dev_deg: float = 0.0
+    gs_dev_ft: float = 0.0
+    tcas_alert: bool = False
+
+    def update(self, data: dict) -> None:
+        self.distance_nm = data.get("nav_dist_nm", 0.0)
+        self.ils_distance_nm = data.get("ils_dist_nm", 0.0)
+        self.loc_dev_deg = data.get("loc_dev_deg", 0.0)
+        self.gs_dev_ft = data.get("gs_dev_ft", 0.0)
+        self.tcas_alert = data.get("tcas_alert", False)
+
+
+@dataclass
+class SystemsStatusPanel:
+    """Display hydraulic, electrical and bleed air status."""
+
+    hydraulic_pressure: float = 0.0
+    electrical_charge: float = 0.0
+    bleed_pressure: float = 0.0
+
+    def update(self, data: dict) -> None:
+        self.hydraulic_pressure = data.get("hyd_press", 0.0)
+        self.electrical_charge = data.get("elec_charge", 0.0)
+        self.bleed_pressure = data.get("bleed_press", 0.0)
+
+
+@dataclass
+class OverheadPanel:
+    """Monitor high level aircraft system states."""
+
+    apu_running: bool = False
+    crossfeed: bool = False
+
+    def update(self, data: dict) -> None:
+        self.apu_running = data.get("apu_running", False)
+        self.crossfeed = data.get("crossfeed", False)

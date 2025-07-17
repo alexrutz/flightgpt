@@ -28,6 +28,10 @@ with automatic speedbrake deployment and introduces random hydraulic pump
 failures for additional system depth.
 A simple weather radar now detects heavy precipitation and reports it via
 the cockpit interface.
+A simple navigation display shows distance to the active waypoint and ILS
+deviations, while a small systems page tracks hydraulic, electrical and
+bleed air pressure. An overhead panel monitors the APU and fuel crossfeed
+state.
 A new bleed air model now ties engine and APU performance to cabin
 pressurization and anti-ice efficiency for greater realism.
 Hydraulic pumps now depend on engine or APU power, so losing all sources
