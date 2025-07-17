@@ -25,6 +25,7 @@ from a320_systems import (
     OverheadPanel,
     CabinSignsPanel,
     LightingPanel,
+    CockpitSystems,
 )
 
 
@@ -54,6 +55,7 @@ class A320Cockpit:
         self.pressurization = PressurizationDisplay()
         self.warnings_panel = WarningPanel()
         self.fms = FlightManagementSystem(self.sim.nav)
+        self.cockpit_systems = CockpitSystems()
 
     def set_seatbelt_sign(self, on: bool) -> None:
         """Toggle the seatbelt sign."""
@@ -104,6 +106,24 @@ class A320Cockpit:
             "master_caution": data["master_caution"],
         }
         self.warnings_panel.update({"warnings": warnings})
+        autopilot_info = {
+            "engaged": self.sim.autopilot.engaged,
+            "autothrottle": self.sim.autopilot.autothrottle.engaged,
+            "target_altitude_ft": self.sim.autopilot.altitude,
+            "target_heading_deg": self.sim.autopilot.heading,
+            "target_speed_kt": self.sim.autopilot.speed,
+            "target_vs_fpm": self.sim.autopilot.vs_target_fpm,
+            "autobrake_level": self.sim.autobrake.level,
+            "autobrake_active": data["autobrake_active"],
+            "automation": self.sim.autopilot.auto_manage_systems,
+        }
+        cockpit_data = {
+            **data,
+            "warnings": warnings,
+            "apu_running": self.sim.electrics.apu_running,
+            "autopilot": autopilot_info,
+        }
+        self.cockpit_systems.update(cockpit_data)
         return {
             "pfd": {
                 "altitude_ft": self.pfd.altitude_ft,
@@ -130,17 +150,7 @@ class A320Cockpit:
                 "code": self.transponder.code,
                 "mode": self.transponder.mode,
             },
-            "autopilot": {
-                "engaged": self.sim.autopilot.engaged,
-                "autothrottle": self.sim.autopilot.autothrottle.engaged,
-                "target_altitude_ft": self.sim.autopilot.altitude,
-                "target_heading_deg": self.sim.autopilot.heading,
-                "target_speed_kt": self.sim.autopilot.speed,
-                "target_vs_fpm": self.sim.autopilot.vs_target_fpm,
-                "autobrake_level": self.sim.autobrake.level,
-                "autobrake_active": data["autobrake_active"],
-                "automation": self.sim.autopilot.auto_manage_systems,
-            },
+            "autopilot": autopilot_info,
             "nav_display": {
                 "distance_nm": self.nav_display.distance_nm,
                 "ils_distance_nm": self.nav_display.ils_distance_nm,
