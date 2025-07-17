@@ -212,3 +212,25 @@ class FuelPanel:
     def toggle_crossfeed(self) -> None:
         self.fuel.crossfeed_on = not self.fuel.crossfeed_on
 
+
+class FlightControlPanel:
+    """Manually command gear, flap and speedbrake positions."""
+
+    def __init__(self, systems):
+        self.systems = systems
+
+    def set_gear(self, position: str) -> None:
+        """Set landing gear to 'up' or 'down'."""
+        if position.lower() == "down":
+            self.systems.set_targets(gear=1.0)
+        elif position.lower() == "up":
+            self.systems.set_targets(gear=0.0)
+
+    def set_flap(self, setting: float) -> None:
+        """Set the flap lever between 0.0 and 1.0."""
+        self.systems.set_targets(flap=max(0.0, min(setting, 1.0)))
+
+    def set_speedbrake(self, setting: float) -> None:
+        """Set the speedbrake lever between 0.0 and 1.0."""
+        self.systems.set_targets(speedbrake=max(0.0, min(setting, 1.0)))
+

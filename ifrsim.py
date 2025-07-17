@@ -1118,6 +1118,7 @@ class Autopilot:
         capture_window=200.0,
         climb_vs_fpm=1500.0,
         descent_vs_fpm=-1500.0,
+        auto_manage_systems=True,
     ):
         self.fdm = fdm
         self.dt = dt
@@ -1148,6 +1149,7 @@ class Autopilot:
         self.capture_window = capture_window
         self.climb_vs_fpm = climb_vs_fpm
         self.descent_vs_fpm = descent_vs_fpm
+        self.auto_manage_systems = auto_manage_systems
 
     def engage(self) -> None:
         """Activate the autopilot."""
@@ -1156,6 +1158,10 @@ class Autopilot:
     def disengage(self) -> None:
         """Deactivate the autopilot and release controls."""
         self.engaged = False
+
+    def set_system_automation(self, enabled: bool) -> None:
+        """Enable or disable automatic gear and flap management."""
+        self.auto_manage_systems = enabled
 
     def set_targets(self, altitude=None, heading=None, speed=None, vs=None):
         if altitude is not None:
@@ -1174,6 +1180,8 @@ class Autopilot:
 
     def _manage_systems(self, alt, speed, on_ground):
         """Very naive flap, gear and speedbrake scheduling."""
+        if not self.auto_manage_systems:
+            return
         # Landing gear
         gear_cmd = 1.0 if alt < 1500 and speed < 180 else 0.0
 

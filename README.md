@@ -39,7 +39,9 @@ system depth.
 A basic autobrake system now manages wheel braking after touchdown for
 more realistic landings.
 A small cockpit interface exposes autopilot, radio, transponder,
-autobrake, engine start and APU controls.
+autobrake, engine start and APU controls. Manual gear, flap and
+speedbrake levers are available alongside an option to disable the
+automatic system scheduling.
 A small navigation system lets the autopilot track a short series of
 waypoints for basic route following.
 Random generator failures may require the APU to power the aircraft and
