@@ -22,17 +22,19 @@ class PIDController:
 
 
 class Engine:
-    """Simple engine model with throttle spool dynamics, oil and fire."""
+    """Model a single engine with basic failures and dynamics."""
 
     def __init__(
         self,
         fdm,
+        index: int,
         spool_rate=0.2,
         failure_chance=0.0,
         oil=None,
         fire_chance=0.0,
     ):
         self.fdm = fdm
+        self.index = index
         self.spool_rate = spool_rate
         self.failure_chance = failure_chance
         self.throttle = 0.0
@@ -46,14 +48,23 @@ class Engine:
         self.fire_timer = 0.0
         self.fire_chance = fire_chance
 
+    def _prop(self, name: str) -> str:
+        if self.index == 0:
+            return f"propulsion/engine/{name}"
+        return f"propulsion/engine[{self.index}]/{name}"
+
+    def _fcs(self, name: str) -> str:
+        if self.index == 0:
+            return f"fcs/{name}"
+        return f"fcs/{name}[{self.index}]"
+
     def fail(self) -> None:
-        """Fail both engines."""
+        """Fail this engine."""
         self.failed = True
-        self.fdm['propulsion/engine/set-running'] = 0
-        self.fdm['propulsion/engine[1]/set-running'] = 0
+        self.fdm[self._prop("set-running")] = 0
 
     def restart(self) -> None:
-        """Clear failure flag once the engines are running again."""
+        """Clear failure flag once the engine is running again."""
         self.failed = False
 
     def set_target(self, throttle: float) -> None:
@@ -64,7 +75,6 @@ class Engine:
         """Update engine throttle command with a simple non-linear lag."""
         if not self.failed:
             diff = self.target - self.throttle
-            # Allow faster spool when the commanded change is large
             rate = self.spool_rate * (1.0 + 2.0 * abs(diff))
             max_delta = rate * dt
             diff = max(min(diff, max_delta), -max_delta)
@@ -75,8 +85,7 @@ class Engine:
             self.throttle = 0.0
 
         cmd = self.throttle * self.efficiency
-        self.fdm['fcs/throttle-cmd-norm'] = cmd
-        self.fdm['fcs/throttle-cmd-norm[1]'] = cmd
+        self.fdm[self._fcs("throttle-cmd-norm")] = cmd
 
         oil_p, oil_t = self.oil.update(self.throttle, dt)
         if oil_p < 0.2 or oil_t > 1.2:
@@ -96,8 +105,7 @@ class Engine:
             self.fire_timer = 0.0
 
     def n1(self) -> float:
-        """Return the N1 (fan speed) of the first engine."""
-        return self.fdm.get_property_value('propulsion/engine/n1')
+        return self.fdm.get_property_value(self._prop("n1"))
 
     def oil_pressure(self) -> float:
         return self.oil.pressure
@@ -110,10 +118,88 @@ class Engine:
         self.fire_timer = 0.0
 
 
+class EngineSystem:
+    """Manage a set of engines as a single unit."""
+
+    def __init__(self, engines: list[Engine]):
+        self.engines = engines
+
+    @property
+    def throttle(self) -> float:
+        if not self.engines:
+            return 0.0
+        return sum(e.throttle for e in self.engines) / len(self.engines)
+
+    @property
+    def extra_fuel_factor(self) -> float:
+        if not self.engines:
+            return 0.0
+        return sum(e.extra_fuel_factor for e in self.engines) / len(self.engines)
+
+    @extra_fuel_factor.setter
+    def extra_fuel_factor(self, value: float) -> None:
+        for e in self.engines:
+            e.extra_fuel_factor = value
+
+    @property
+    def efficiency(self) -> float:
+        if not self.engines:
+            return 1.0
+        return sum(e.efficiency for e in self.engines) / len(self.engines)
+
+    @efficiency.setter
+    def efficiency(self, value: float) -> None:
+        for e in self.engines:
+            e.efficiency = value
+
+    def set_target(self, throttle: float) -> None:
+        for e in self.engines:
+            e.set_target(throttle)
+
+    def update(self, dt: float) -> None:
+        for e in self.engines:
+            e.update(dt)
+
+    def n1(self) -> float:
+        if not self.engines:
+            return 0.0
+        return sum(e.n1() for e in self.engines) / len(self.engines)
+
+    def n1_list(self) -> list[float]:
+        return [e.n1() for e in self.engines]
+
+    def oil_pressure(self) -> float:
+        if not self.engines:
+            return 0.0
+        return sum(e.oil_pressure() for e in self.engines) / len(self.engines)
+
+    def oil_temperature(self) -> float:
+        if not self.engines:
+            return 0.0
+        return sum(e.oil_temperature() for e in self.engines) / len(self.engines)
+
+    def fail(self, index: int | None = None) -> None:
+        if index is None:
+            for e in self.engines:
+                e.fail()
+        elif 0 <= index < len(self.engines):
+            self.engines[index].fail()
+
+    def restart(self, index: int | None = None) -> None:
+        if index is None:
+            for e in self.engines:
+                e.restart()
+        elif 0 <= index < len(self.engines):
+            self.engines[index].restart()
+
+    @property
+    def fire(self) -> bool:
+        return any(e.fire for e in self.engines)
+
 class Autothrottle:
     """Maintain target airspeed by commanding engine thrust."""
 
-    def __init__(self, fdm, engine, kp=0.01, ki=0.0, kd=0.0):
+    def __init__(self, fdm, engine: EngineSystem, kp=0.01, ki=0.0, kd=0.0):
         self.fdm = fdm
         self.engine = engine
         self.pid = PIDController(kp, ki, kd)
@@ -275,7 +361,7 @@ class FuelSystem:
     def __init__(
         self,
         fdm,
-        engine=None,
+        engine: EngineSystem | None = None,
         electrics=None,
         apu_flow_pph=150.0,
         crossfeed_rate_pph=1200.0,
@@ -407,7 +493,7 @@ class ElectricSystem:
 class BleedAirSystem:
     """Provide bleed air from the engines or APU."""
 
-    def __init__(self, engine, electrics, engine_gain=1.0, apu_gain=0.5):
+    def __init__(self, engine: EngineSystem, electrics, engine_gain=1.0, apu_gain=0.5):
         self.engine = engine
         self.electrics = electrics
         self.engine_gain = engine_gain
@@ -428,10 +514,10 @@ class BleedAirSystem:
 class EngineStartSystem:
     """Start the engines using bleed air with a short delay."""
 
-    def __init__(self, fdm, bleed, engine=None, start_time=8.0):
+    def __init__(self, fdm, bleed, engines: EngineSystem | None = None, start_time=8.0):
         self.fdm = fdm
         self.bleed = bleed
-        self.engine = engine
+        self.engines = engines
         self.start_time = start_time
         self.timer = 0.0
         self.state = "stopped"
@@ -440,18 +526,29 @@ class EngineStartSystem:
         if self.state == "stopped":
             self.state = "starting"
             self.timer = 0.0
-            self.fdm["propulsion/engine/set-running"] = 0
-            self.fdm["propulsion/engine[1]/set-running"] = 0
+            if self.engines is not None:
+                for i, _ in enumerate(self.engines.engines):
+                    key = (
+                        "propulsion/engine/set-running"
+                        if i == 0
+                        else f"propulsion/engine[{i}]/set-running"
+                    )
+                    self.fdm[key] = 0
 
     def update(self, dt: float) -> bool:
         if self.state == "starting":
             if self.bleed.pressure > 0.3:
                 self.timer += dt
             if self.timer >= self.start_time:
-                self.fdm["propulsion/engine/set-running"] = 1
-                self.fdm["propulsion/engine[1]/set-running"] = 1
-                if self.engine is not None:
-                    self.engine.restart()
+                if self.engines is not None:
+                    for i, eng in enumerate(self.engines.engines):
+                        key = (
+                            "propulsion/engine/set-running"
+                            if i == 0
+                            else f"propulsion/engine[{i}]/set-running"
+                        )
+                        self.fdm[key] = 1
+                        eng.restart()
                 self.state = "running"
         return self.state == "running"
 
@@ -497,7 +594,7 @@ class AntiIceSystem:
     def __init__(
         self,
         environment,
-        engine,
+        engine: EngineSystem,
         bleed=None,
         melt_rate=0.05,
         acc_rate=0.1,
@@ -617,24 +714,27 @@ class OverspeedWarningSystem:
 class FireSuppressionSystem:
     """Detect and extinguish engine fires with limited bottles."""
 
-    def __init__(self, engine, bottles=2):
-        self.engine = engine
+    def __init__(self, engines: EngineSystem, bottles=2):
+        self.engines = engines
         self.bottles = bottles
         self.active = False
         self.timer = 0.0
+        self.active_engine: int | None = None
 
     def update(self, dt):
-        if self.engine.fire and not self.active and self.bottles > 0:
-            self.bottles -= 1
-            self.active = True
-            self.timer = 0.0
-        if self.active:
+        if self.active_engine is None:
+            for i, eng in enumerate(self.engines.engines):
+                if eng.fire and self.bottles > 0:
+                    self.bottles -= 1
+                    self.active_engine = i
+                    self.timer = 0.0
+                    break
+        if self.active_engine is not None:
             self.timer += dt
             if self.timer > 1.0:
-                self.engine.extinguish_fire()
-                self.active = False
-
-        return self.engine.fire
+                self.engines.engines[self.active_engine].extinguish_fire()
+                self.active_engine = None
+        return self.engines.fire
 
     def bottles_left(self) -> int:
         return self.bottles
@@ -831,7 +931,7 @@ class Autopilot:
         throttle_cmd = self.autothrottle.update(self.dt, powered)
         active, ice = self.anti_ice.update(self.dt)
 
-        n1 = self.engine.n1()
+        n1_list = self.engine.n1_list()
         oil_p = self.engine.oil_pressure()
         oil_t = self.engine.oil_temperature()
         return (
@@ -841,7 +941,7 @@ class Autopilot:
             pitch_cmd,
             aileron_cmd,
             self.engine.throttle,
-            n1,
+            n1_list,
             pressure,
             demand,
             active,
@@ -862,23 +962,26 @@ class A320IFRSim:
         self.target_altitude = 4000  # feet
         self.target_psi = 0  # heading degrees
         self.target_speed = 250  # knots
-        self.engine = Engine(self.fdm, failure_chance=5e-5, fire_chance=1e-5)
+        self.engines = EngineSystem([
+            Engine(self.fdm, 0, failure_chance=5e-5, fire_chance=1e-5),
+            Engine(self.fdm, 1, failure_chance=5e-5, fire_chance=1e-5),
+        ])
         self.systems = SystemManager(self.fdm, failure_chance=1e-4)
         self.electrics = ElectricSystem(generator_failure_chance=5e-5)
-        self.fuel = FuelSystem(self.fdm, self.engine, self.electrics)
-        self.bleed = BleedAirSystem(self.engine, self.electrics)
-        self.starter = EngineStartSystem(self.fdm, self.bleed, self.engine)
+        self.fuel = FuelSystem(self.fdm, self.engines, self.electrics)
+        self.bleed = BleedAirSystem(self.engines, self.electrics)
+        self.starter = EngineStartSystem(self.fdm, self.bleed, self.engines)
         self.environment = Environment(self.fdm)
         self.brakes = BrakeSystem()
         self.anti_ice = AntiIceSystem(
-            self.environment, self.engine, self.bleed, failure_chance=1e-4
+            self.environment, self.engines, self.bleed, failure_chance=1e-4
         )
         self.pressurization = PressurizationSystem(self.fdm, self.bleed)
         self.oxygen = OxygenSystem()
         self.stall_warning = StallWarningSystem(self.fdm)
         self.gpws = GroundProximityWarningSystem(self.fdm)
         self.overspeed = OverspeedWarningSystem(self.fdm)
-        self.fire_suppr = FireSuppressionSystem(self.engine)
+        self.fire_suppr = FireSuppressionSystem(self.engines)
         self.nav = NavigationSystem(
             self.fdm,
             [
@@ -890,7 +993,7 @@ class A320IFRSim:
         self.autopilot = Autopilot(
             self.fdm,
             dt,
-            self.engine,
+            self.engines,
             self.systems,
             self.electrics,
             self.environment,
@@ -922,7 +1025,7 @@ class A320IFRSim:
         dt = self.fdm.get_delta_t()
         self.environment.update(dt)
         self.starter.update(dt)
-        if self.engine.failed and self.starter.state == "running":
+        if any(e.failed for e in self.engines.engines) and self.starter.state == "running":
             self.starter.request_start()
         (
             alt,
@@ -931,7 +1034,7 @@ class A320IFRSim:
             pitch_cmd,
             aileron_cmd,
             throttle_cmd,
-            n1,
+            n1_list,
             pressure,
             hyd_demand,
             anti_ice_on,
@@ -941,12 +1044,13 @@ class A320IFRSim:
             oil_press,
             oil_temp,
         ) = self.autopilot.update()
-        elec = self.electrics.update(n1 > 0.5, hyd_demand + 0.1, dt)
+        n1_avg = sum(n1_list) / len(n1_list)
+        elec = self.electrics.update(n1_avg > 0.5, hyd_demand + 0.1, dt)
         cabin_alt, cabin_diff, bleed_press = self.pressurization.update(dt)
         fuel_data = self.fuel.update()
         oxygen = self.oxygen.update(cabin_alt, dt)
         self.fire_suppr.update(dt)
-        fire = self.engine.fire
+        fire = self.engines.fire
         bottles = self.fire_suppr.bottles_left()
         stall = self.stall_warning.update()
         gpws = self.gpws.update()
@@ -964,7 +1068,7 @@ class A320IFRSim:
             'pitch_cmd': pitch_cmd,
             'aileron_cmd': aileron_cmd,
             'throttle_cmd': throttle_cmd,
-            'n1': n1,
+            'n1': n1_list,
             'flap': flap,
             'gear': gear,
             'hyd_press': pressure,
@@ -1000,7 +1104,7 @@ class A320IFRSim:
                     f"spd={data['speed_kt']:.1f}kt hdg={data['heading_deg']:.1f} "
                     f"vs={data['vs_fpm']:.0f}fpm flap={data['flap']:.2f} "
                     f"gear={data['gear']:.0f} thr={data['throttle_cmd']:.2f} "
-                    f"n1={ (data['n1']*100 if data['n1']<=2 else data['n1']):.0f}% "
+                    f"n1={'/'.join(f'{n*100:.0f}' if n<=2 else f'{n:.0f}' for n in data['n1'])}% "
                     f"hyd={data['hyd_press']:.2f} elec={data['elec_charge']:.2f} "
                     f"fuel={data['fuel_lbs']:.0f}lb "
                     f"cabin={data['cabin_altitude_ft']:.0f}ft "
