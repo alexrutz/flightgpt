@@ -6,7 +6,9 @@ controls for a non-graphical cockpit environment.
 
 ## Primary Flight Display (PFD)
 Tracks altitude, airspeed, heading, vertical speed and basic flight director
-commands for external indicators.
+commands for external indicators. The PFD now also reports the actual aircraft
+pitch and roll angles so a standby attitude indicator can be driven from the
+snapshot data.
 
 ## Engine Display / ECAM
 Reports N1 thrust levels, oil pressure and temperature, exhaust gas

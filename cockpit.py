@@ -145,6 +145,8 @@ class A320Cockpit:
                 "speed_kt": self.pfd.speed_kt,
                 "heading_deg": self.pfd.heading_deg,
                 "vs_fpm": self.pfd.vs_fpm,
+                "pitch_deg": self.pfd.pitch_deg,
+                "roll_deg": self.pfd.roll_deg,
             },
             "ecam": {
                 "n1": self.ecam_display.n1,
