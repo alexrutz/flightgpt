@@ -382,6 +382,34 @@ class OverheadPanel:
 
 
 @dataclass
+class HydraulicPanel:
+    """Show hydraulic system pressure."""
+
+    pressure: float = 0.0
+
+    def update(self, data: dict) -> None:
+        if "hyd_press" in data:
+            self.pressure = data["hyd_press"]
+
+
+@dataclass
+class BleedAirPanel:
+    """Display bleed air pressure and anti-ice state."""
+
+    pressure: float = 0.0
+    anti_ice_on: bool = False
+    wing_anti_ice_on: bool = False
+
+    def update(self, data: dict) -> None:
+        if "bleed_press" in data:
+            self.pressure = data["bleed_press"]
+        if "anti_ice_on" in data:
+            self.anti_ice_on = data["anti_ice_on"]
+        if "wing_anti_ice_on" in data:
+            self.wing_anti_ice_on = data["wing_anti_ice_on"]
+
+
+@dataclass
 class OxygenPanel:
     """Display remaining oxygen supply."""
 
@@ -511,6 +539,8 @@ class CockpitSystems:
     transponder: Transponder = field(default_factory=Transponder)
     systems: SystemsStatusPanel = field(default_factory=SystemsStatusPanel)
     overhead: OverheadPanel = field(default_factory=OverheadPanel)
+    hydraulics: HydraulicPanel = field(default_factory=HydraulicPanel)
+    bleed_air: BleedAirPanel = field(default_factory=BleedAirPanel)
     oxygen: 'OxygenPanel' = field(default_factory=lambda: OxygenPanel())
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
     lights: LightingPanel = field(default_factory=LightingPanel)
@@ -529,6 +559,8 @@ class CockpitSystems:
         self.tcas.update(data)
         self.autopilot.update(data.get("autopilot", {}))
         self.systems.update(data)
+        self.hydraulics.update(data)
+        self.bleed_air.update(data)
         self.controls.update(data)
         self.overhead.update(data)
         self.oxygen.update(data)
@@ -560,6 +592,8 @@ class CockpitSystems:
             },
             "systems": asdict(self.systems),
             "overhead": asdict(self.overhead),
+            "hydraulics": asdict(self.hydraulics),
+            "bleed_air": asdict(self.bleed_air),
             "oxygen": asdict(self.oxygen),
             "cabin": asdict(self.cabin),
             "lights": asdict(self.lights),

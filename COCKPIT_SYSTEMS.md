@@ -70,6 +70,12 @@ Summarizes hydraulic, electrical and bleed air pressures.
 ## Overhead Panel
 Indicates APU running state and fuel crossfeed status.
 
+## Hydraulic Panel
+Shows the current hydraulic system pressure.
+
+## Bleed Air Panel
+Displays bleed air pressure along with engine and wing anti-ice status.
+
 ## Cabin Signs Panel
 Tracks the seatbelt and no smoking signs.
 
@@ -94,3 +100,4 @@ The `CockpitSystems` dataclass aggregates all of the above panels so they can
 be updated from a single simulation snapshot. The snapshot also includes the
 current radio and transponder settings for external consumers.
 It now also exposes brake temperature information via the brake panel.
+
