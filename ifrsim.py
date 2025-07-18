@@ -1569,6 +1569,7 @@ class A320IFRSim:
             "n1": n1_list,
             "flap": flap,
             "gear": gear,
+            "speedbrake": self.systems.speedbrake,
             "hyd_press": pressure,
             "elec_charge": elec,
             "anti_ice_on": anti_ice_on,

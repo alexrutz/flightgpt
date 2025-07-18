@@ -51,6 +51,10 @@ Displays tank quantities and manages fuel crossfeed.
 ## Flight Control Panel
 Manually commands landing gear, flap and speedbrake positions.
 
+## Flight Controls Display
+Reports the current flap, gear and speedbrake positions. It also indicates if
+the flap or gear mechanisms are inoperable due to overspeed damage.
+
 ## Weather Radar Panel
 Indicates heavy precipitation detected ahead of the aircraft.
 

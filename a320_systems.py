@@ -457,6 +457,29 @@ class LightingPanel:
 
 
 @dataclass
+class FlightControlsDisplay:
+    """Show current gear, flap and speedbrake state."""
+
+    gear: float = 0.0
+    flap: float = 0.0
+    speedbrake: float = 0.0
+    gear_operable: bool = True
+    flap_operable: bool = True
+
+    def update(self, data: dict) -> None:
+        if "gear" in data:
+            self.gear = data["gear"]
+        if "flap" in data:
+            self.flap = data["flap"]
+        if "speedbrake" in data:
+            self.speedbrake = data["speedbrake"]
+        if "gear_operable" in data:
+            self.gear_operable = data["gear_operable"]
+        if "flap_operable" in data:
+            self.flap_operable = data["flap_operable"]
+
+
+@dataclass
 class ClockPanel:
     """Simple chronometer showing elapsed simulation time."""
 
@@ -491,6 +514,7 @@ class CockpitSystems:
     oxygen: 'OxygenPanel' = field(default_factory=lambda: OxygenPanel())
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
     lights: LightingPanel = field(default_factory=LightingPanel)
+    controls: FlightControlsDisplay = field(default_factory=FlightControlsDisplay)
     parking_brake: ParkingBrakePanel = field(default_factory=ParkingBrakePanel)
     brakes: BrakesPanel = field(default_factory=BrakesPanel)
     clock: ClockPanel = field(default_factory=ClockPanel)
@@ -505,6 +529,7 @@ class CockpitSystems:
         self.tcas.update(data)
         self.autopilot.update(data.get("autopilot", {}))
         self.systems.update(data)
+        self.controls.update(data)
         self.overhead.update(data)
         self.oxygen.update(data)
         self.cabin.update(data)
@@ -538,6 +563,7 @@ class CockpitSystems:
             "oxygen": asdict(self.oxygen),
             "cabin": asdict(self.cabin),
             "lights": asdict(self.lights),
+            "controls": asdict(self.controls),
             "parking_brake": asdict(self.parking_brake),
             "brakes": asdict(self.brakes),
             "clock": {"time_s": self.clock.time_s, "time_hms": self.clock.time_hms},
