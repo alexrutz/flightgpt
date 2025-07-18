@@ -1,6 +1,6 @@
 """Simplified A320 cockpit system models."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 
 from ifrsim import NavigationSystem
@@ -490,4 +490,23 @@ class CockpitSystems:
         self.parking_brake.update(data)
         self.clock.update(data)
         # Light states are stored in the panel itself, so no update needed
+
+    def snapshot(self) -> dict:
+        """Return a dictionary with the state of all panels."""
+        return {
+            "pfd": asdict(self.pfd),
+            "engine": asdict(self.engine),
+            "pressurization": asdict(self.pressurization),
+            "warnings": asdict(self.warnings),
+            "navigation": asdict(self.navigation),
+            "tcas": asdict(self.tcas),
+            "autopilot": asdict(self.autopilot),
+            "systems": asdict(self.systems),
+            "overhead": asdict(self.overhead),
+            "oxygen": asdict(self.oxygen),
+            "cabin": asdict(self.cabin),
+            "lights": asdict(self.lights),
+            "parking_brake": asdict(self.parking_brake),
+            "clock": {"time_s": self.clock.time_s, "time_hms": self.clock.time_hms},
+        }
 

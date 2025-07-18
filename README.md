@@ -84,7 +84,9 @@ An oxygen panel now displays the remaining supply for reference during
 high-altitude flight.
 A small clock shows the elapsed simulation time for reference.
 The new `CockpitSystems` helper class aggregates all panels so they can be
-updated from a single simulation data snapshot.
+updated from a single simulation data snapshot. A new `snapshot()` method now
+returns a dictionary with the state of all panels so external software can
+easily consume the information.
 The primary flight display now exposes simple flight director pitch and roll
 commands from the autopilot for external indicators.
 No graphics are provided – the goal is to use external hardware like LED displays or buttons for cockpit interaction.
