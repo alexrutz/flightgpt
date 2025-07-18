@@ -84,4 +84,5 @@ lights.
 
 ## CockpitSystems Helper
 The `CockpitSystems` dataclass aggregates all of the above panels so they can
-be updated from a single simulation snapshot.
+be updated from a single simulation snapshot. The snapshot also includes the
+current radio and transponder settings for external consumers.

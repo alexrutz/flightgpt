@@ -470,6 +470,8 @@ class CockpitSystems:
     navigation: NavigationDisplay = field(default_factory=NavigationDisplay)
     tcas: TCASDisplay = field(default_factory=TCASDisplay)
     autopilot: AutopilotDisplay = field(default_factory=AutopilotDisplay)
+    radio: RadioPanel = field(default_factory=RadioPanel)
+    transponder: Transponder = field(default_factory=Transponder)
     systems: SystemsStatusPanel = field(default_factory=SystemsStatusPanel)
     overhead: OverheadPanel = field(default_factory=OverheadPanel)
     oxygen: 'OxygenPanel' = field(default_factory=lambda: OxygenPanel())
@@ -505,6 +507,16 @@ class CockpitSystems:
             "navigation": asdict(self.navigation),
             "tcas": asdict(self.tcas),
             "autopilot": asdict(self.autopilot),
+            "radio": {
+                "com1_active": self.radio.com1_active,
+                "com1_standby": self.radio.com1_standby,
+                "com2_active": self.radio.com2_active,
+                "com2_standby": self.radio.com2_standby,
+            },
+            "transponder": {
+                "code": self.transponder.code,
+                "mode": self.transponder.mode,
+            },
             "systems": asdict(self.systems),
             "overhead": asdict(self.overhead),
             "oxygen": asdict(self.oxygen),
