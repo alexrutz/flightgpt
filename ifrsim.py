@@ -1526,6 +1526,8 @@ class A320IFRSim:
             flap_ok,
             gear_ok,
         ) = self.autopilot.update()
+        pitch_deg = self.fdm.get_property_value("attitude/pitch-deg")
+        roll_deg = self.fdm.get_property_value("attitude/roll-deg")
         n1_avg = sum(n1_list) / len(n1_list)
         elec = self.electrics.update(n1_avg > 0.5, hyd_demand + 0.1, dt)
         cabin_alt, cabin_diff, bleed_press = self.pressurization.update(dt)
@@ -1561,6 +1563,8 @@ class A320IFRSim:
             "vs_fpm": vs_fpm,
             "pitch_cmd": pitch_cmd,
             "aileron_cmd": aileron_cmd,
+            "pitch_deg": pitch_deg,
+            "roll_deg": roll_deg,
             "throttle_cmd": throttle_cmd,
             "n1": n1_list,
             "flap": flap,

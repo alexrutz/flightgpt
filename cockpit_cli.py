@@ -39,6 +39,8 @@ def print_status(status: dict) -> None:
         f"SPD {pfd['speed_kt']:.1f}KT "
         f"HDG {pfd['heading_deg']:.0f} "
         f"VS {pfd['vs_fpm']:.0f}FPM "
+        f"P {pfd['pitch_deg']:.1f} "
+        f"R {pfd['roll_deg']:.1f} "
         f"FUEL {ecam['fuel_lbs']:.0f}LB "
         f"BELT {'ON' if status['cabin_signs']['seatbelt'] else 'OFF'} "
         f"SMOKE {'ON' if status['cabin_signs']['no_smoking'] else 'OFF'}"

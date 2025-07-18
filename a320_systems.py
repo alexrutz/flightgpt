@@ -16,6 +16,8 @@ class PrimaryFlightDisplay:
     vs_fpm: float = 0.0
     fd_pitch: float = 0.0
     fd_roll: float = 0.0
+    pitch_deg: float = 0.0
+    roll_deg: float = 0.0
 
     def update(self, data: dict) -> None:
         self.altitude_ft = data.get("altitude_ft", 0.0)
@@ -24,6 +26,8 @@ class PrimaryFlightDisplay:
         self.vs_fpm = data.get("vs_fpm", 0.0)
         self.fd_pitch = data.get("pitch_cmd", 0.0)
         self.fd_roll = data.get("aileron_cmd", 0.0)
+        self.pitch_deg = data.get("pitch_deg", 0.0)
+        self.roll_deg = data.get("roll_deg", 0.0)
 
 
 @dataclass
