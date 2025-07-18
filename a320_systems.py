@@ -1,7 +1,7 @@
 """Simplified A320 cockpit system models."""
 
 from dataclasses import dataclass, field, asdict
-from typing import List, Optional
+from typing import List, Optional, Any
 
 from ifrsim import NavigationSystem
 
@@ -268,20 +268,52 @@ class ElectricalPanel:
         return self.electrics.rat_deployed()
 
 
+@dataclass
 class FuelPanel:
     """Display fuel quantities and manage crossfeed."""
 
-    def __init__(self, fuel):
-        self.fuel = fuel
+    fuel: Any | None = field(default=None, repr=False)
+    left_lbs: float = 0.0
+    right_lbs: float = 0.0
+    total_lbs: float = 0.0
+    crossfeed: bool = False
+
+    def update(self, data: dict) -> None:
+        if "fuel_left_lbs" in data:
+            self.left_lbs = data["fuel_left_lbs"]
+        if "fuel_right_lbs" in data:
+            self.right_lbs = data["fuel_right_lbs"]
+        if "fuel_lbs" in data:
+            self.total_lbs = data["fuel_lbs"]
+        if "crossfeed" in data:
+            self.crossfeed = data["crossfeed"]
+        elif self.fuel is not None:
+            self.crossfeed = self.fuel.crossfeed_on
 
     def enable_crossfeed(self) -> None:
-        self.fuel.crossfeed_on = True
+        if self.fuel is not None:
+            self.fuel.crossfeed_on = True
+        self.crossfeed = True
 
     def disable_crossfeed(self) -> None:
-        self.fuel.crossfeed_on = False
+        if self.fuel is not None:
+            self.fuel.crossfeed_on = False
+        self.crossfeed = False
 
     def toggle_crossfeed(self) -> None:
-        self.fuel.crossfeed_on = not self.fuel.crossfeed_on
+        if self.fuel is not None:
+            self.fuel.crossfeed_on = not self.fuel.crossfeed_on
+            self.crossfeed = self.fuel.crossfeed_on
+        else:
+            self.crossfeed = not self.crossfeed
+
+    def to_dict(self) -> dict:
+        return {
+            "left_lbs": self.left_lbs,
+            "right_lbs": self.right_lbs,
+            "total_lbs": self.total_lbs,
+            "crossfeed": self.crossfeed,
+        }
 
 
 class FlightControlPanel:
@@ -543,6 +575,7 @@ class CockpitSystems:
     bleed_air: BleedAirPanel = field(default_factory=BleedAirPanel)
     oxygen: 'OxygenPanel' = field(default_factory=lambda: OxygenPanel())
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
+    fuel: FuelPanel = field(default_factory=FuelPanel)
     lights: LightingPanel = field(default_factory=LightingPanel)
     controls: FlightControlsDisplay = field(default_factory=FlightControlsDisplay)
     parking_brake: ParkingBrakePanel = field(default_factory=ParkingBrakePanel)
@@ -563,6 +596,7 @@ class CockpitSystems:
         self.bleed_air.update(data)
         self.controls.update(data)
         self.overhead.update(data)
+        self.fuel.update(data)
         self.oxygen.update(data)
         self.cabin.update(data)
         self.parking_brake.update(data)
@@ -594,6 +628,7 @@ class CockpitSystems:
             "overhead": asdict(self.overhead),
             "hydraulics": asdict(self.hydraulics),
             "bleed_air": asdict(self.bleed_air),
+            "fuel": self.fuel.to_dict(),
             "oxygen": asdict(self.oxygen),
             "cabin": asdict(self.cabin),
             "lights": asdict(self.lights),
