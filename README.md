@@ -48,6 +48,8 @@ A basic autobrake system now manages wheel braking after touchdown for
 more realistic landings.
 A parking brake can be set via the CLI to hold the aircraft in place on
 the ground.
+A brake panel now displays wheel temperature and whether the autobrake is active
+for added situational awareness.
 A small cockpit interface exposes autopilot, radio, transponder,
 autobrake, engine start and APU controls. Manual gear, flap and
 speedbrake levers are available alongside an option to disable the

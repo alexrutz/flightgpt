@@ -72,6 +72,9 @@ Tracks the seatbelt and no smoking signs.
 ## Parking Brake Panel
 Indicates whether the parking brake is engaged.
 
+## Brake Panel
+Shows current brake temperature and whether the autobrake system is active.
+
 ## Oxygen Panel
 Shows the remaining oxygen supply for reference.
 
@@ -86,3 +89,4 @@ lights.
 The `CockpitSystems` dataclass aggregates all of the above panels so they can
 be updated from a single simulation snapshot. The snapshot also includes the
 current radio and transponder settings for external consumers.
+It now also exposes brake temperature information via the brake panel.
