@@ -27,6 +27,7 @@ from a320_systems import (
     OxygenPanel,
     LightingPanel,
     ParkingBrakePanel,
+    BrakesPanel,
     ClockPanel,
     CockpitSystems,
 )
@@ -55,6 +56,7 @@ class A320Cockpit:
         self.oxygen_display = OxygenPanel()
         self.lights = LightingPanel()
         self.parking_brake = ParkingBrakePanel()
+        self.brakes_display = BrakesPanel()
         self.clock = ClockPanel()
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
@@ -108,6 +110,7 @@ class A320Cockpit:
         self.overhead.update(data)
         self.cabin_signs.update(data)
         self.parking_brake.update(data)
+        self.brakes_display.update(data)
         self.oxygen_display.update(data)
         self.pressurization.update(data)
         self.clock.update(data)
@@ -228,6 +231,10 @@ class A320Cockpit:
                 "gear": data["gear"],
                 "speedbrake": self.sim.systems.speedbrake,
                 "parking_brake": self.sim.brakes.parking_brake,
+            },
+            "brakes": {
+                "temperature": self.brakes_display.temperature,
+                "autobrake_active": self.brakes_display.autobrake_active,
             },
             "clock": {"time": self.clock.time_hms},
             "warnings": warnings,

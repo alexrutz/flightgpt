@@ -417,6 +417,20 @@ class ParkingBrakePanel:
 
 
 @dataclass
+class BrakesPanel:
+    """Display brake system information."""
+
+    temperature: float = 0.0
+    autobrake_active: bool = False
+
+    def update(self, data: dict) -> None:
+        if "brake_temp" in data:
+            self.temperature = data["brake_temp"]
+        if "autobrake_active" in data:
+            self.autobrake_active = data["autobrake_active"]
+
+
+@dataclass
 class LightingPanel:
     """Manage exterior light switches."""
 
@@ -478,6 +492,7 @@ class CockpitSystems:
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
     lights: LightingPanel = field(default_factory=LightingPanel)
     parking_brake: ParkingBrakePanel = field(default_factory=ParkingBrakePanel)
+    brakes: BrakesPanel = field(default_factory=BrakesPanel)
     clock: ClockPanel = field(default_factory=ClockPanel)
 
     def update(self, data: dict) -> None:
@@ -494,6 +509,7 @@ class CockpitSystems:
         self.oxygen.update(data)
         self.cabin.update(data)
         self.parking_brake.update(data)
+        self.brakes.update(data)
         self.clock.update(data)
         # Light states are stored in the panel itself, so no update needed
 
@@ -523,6 +539,7 @@ class CockpitSystems:
             "cabin": asdict(self.cabin),
             "lights": asdict(self.lights),
             "parking_brake": asdict(self.parking_brake),
+            "brakes": asdict(self.brakes),
             "clock": {"time_s": self.clock.time_s, "time_hms": self.clock.time_hms},
         }
 
