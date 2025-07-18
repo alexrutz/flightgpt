@@ -46,6 +46,8 @@ A small brake model tracks heat build-up on the ground for a touch more
 system depth.
 A basic autobrake system now manages wheel braking after touchdown for
 more realistic landings.
+A parking brake can be set via the CLI to hold the aircraft in place on
+the ground.
 A small cockpit interface exposes autopilot, radio, transponder,
 autobrake, engine start and APU controls. Manual gear, flap and
 speedbrake levers are available alongside an option to disable the

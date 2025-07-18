@@ -27,6 +27,7 @@ HELP_TEXT = """Available commands:
   navlight on|off     - toggle the navigation lights
   strobelight on|off  - toggle the strobe light
   beacon on|off       - toggle the beacon light
+  pbrake on|off       - set the parking brake
   quit                - exit the program"""
 
 
@@ -43,6 +44,7 @@ def print_status(status: dict) -> None:
         f"SMOKE {'ON' if status['cabin_signs']['no_smoking'] else 'OFF'}"
         f" OXY {status['oxygen']['level']:.2f}"
         f" TIME {status['clock']['time']}"
+        f" PBRK {'ON' if status['controls']['parking_brake'] else 'OFF'}"
     )
     tcas = status.get("tcas_display", {})
     if tcas.get("alert"):
@@ -220,6 +222,14 @@ def main() -> None:
                 cp.set_beacon_light(False)
             else:
                 print("Usage: beacon on|off")
+            continue
+        if cmd == "pbrake" and args:
+            if args[0] == "on":
+                cp.set_parking_brake(True)
+            elif args[0] == "off":
+                cp.set_parking_brake(False)
+            else:
+                print("Usage: pbrake on|off")
             continue
         if cmd == "apu" and args:
             if args[0] == "start":

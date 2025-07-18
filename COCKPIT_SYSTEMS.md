@@ -67,6 +67,9 @@ Indicates APU running state and fuel crossfeed status.
 ## Cabin Signs Panel
 Tracks the seatbelt and no smoking signs.
 
+## Parking Brake Panel
+Indicates whether the parking brake is engaged.
+
 ## Oxygen Panel
 Shows the remaining oxygen supply for reference.
 

@@ -26,6 +26,7 @@ from a320_systems import (
     CabinSignsPanel,
     OxygenPanel,
     LightingPanel,
+    ParkingBrakePanel,
     ClockPanel,
     CockpitSystems,
 )
@@ -53,6 +54,7 @@ class A320Cockpit:
         self.cabin_signs = CabinSignsPanel()
         self.oxygen_display = OxygenPanel()
         self.lights = LightingPanel()
+        self.parking_brake = ParkingBrakePanel()
         self.clock = ClockPanel()
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
@@ -89,6 +91,11 @@ class A320Cockpit:
         """Toggle the beacon light."""
         self.lights.set_beacon(on)
 
+    def set_parking_brake(self, on: bool) -> None:
+        """Engage or release the parking brake."""
+        self.sim.set_parking_brake(on)
+        self.parking_brake.engaged = on
+
     def step(self):
         """Advance the underlying simulation and return a status snapshot."""
         data = self.sim.step()
@@ -100,6 +107,7 @@ class A320Cockpit:
         self.system_status.update(data)
         self.overhead.update(data)
         self.cabin_signs.update(data)
+        self.parking_brake.update(data)
         self.oxygen_display.update(data)
         self.pressurization.update(data)
         self.clock.update(data)
@@ -128,6 +136,7 @@ class A320Cockpit:
             "warnings": warnings,
             "apu_running": self.sim.electrics.apu_running,
             "autopilot": autopilot_info,
+            "parking_brake": self.sim.brakes.parking_brake,
         }
         self.cockpit_systems.update(cockpit_data)
         return {
@@ -216,6 +225,7 @@ class A320Cockpit:
                 "flap": data["flap"],
                 "gear": data["gear"],
                 "speedbrake": self.sim.systems.speedbrake,
+                "parking_brake": self.sim.brakes.parking_brake,
             },
             "clock": {"time": self.clock.time_hms},
             "warnings": warnings,
