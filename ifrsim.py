@@ -297,14 +297,20 @@ class BrakeSystem:
         self.heat_rate = heat_rate
         self.cool_rate = cool_rate
         self.command = 0.0
+        self.parking_brake = False
 
     def set_command(self, cmd: float) -> None:
         self.command = max(0.0, min(cmd, 1.0))
 
+    def set_parking_brake(self, on: bool) -> None:
+        """Engage or release the parking brake."""
+        self.parking_brake = bool(on)
+
     def update(self, on_ground: bool, dt: float) -> tuple[float, float]:
-        if not on_ground:
+        if not on_ground and not self.parking_brake:
             self.command = 0.0
-        self.heat += self.heat_rate * self.command * dt
+        applied = max(self.command, 1.0 if self.parking_brake else 0.0)
+        self.heat += self.heat_rate * applied * dt
         self.heat -= self.cool_rate * dt
         self.heat = max(0.0, min(self.heat, 1.0))
         efficiency = 1.0 - 0.5 * self.heat
@@ -1480,6 +1486,10 @@ class A320IFRSim:
         self.electrics.start_apu()
         self.starter.request_start()
 
+    def set_parking_brake(self, on: bool) -> None:
+        """Engage or release the parking brake."""
+        self.brakes.set_parking_brake(on)
+
     def step(self):
         dt = self.fdm.get_delta_t()
         self.time_s += dt
@@ -1593,6 +1603,7 @@ class A320IFRSim:
             "gear_operable": self.systems.gear_operable,
             "tcas_alert": tcas_alert,
             "master_caution": caution,
+            "parking_brake": self.brakes.parking_brake,
             "time_s": self.time_s,
         }
 

@@ -402,6 +402,17 @@ class CabinSignsPanel:
 
 
 @dataclass
+class ParkingBrakePanel:
+    """Indicate parking brake state."""
+
+    engaged: bool = False
+
+    def update(self, data: dict) -> None:
+        if "parking_brake" in data:
+            self.engaged = data["parking_brake"]
+
+
+@dataclass
 class LightingPanel:
     """Manage exterior light switches."""
 
@@ -460,6 +471,7 @@ class CockpitSystems:
     oxygen: 'OxygenPanel' = field(default_factory=lambda: OxygenPanel())
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
     lights: LightingPanel = field(default_factory=LightingPanel)
+    parking_brake: ParkingBrakePanel = field(default_factory=ParkingBrakePanel)
     clock: ClockPanel = field(default_factory=ClockPanel)
 
     def update(self, data: dict) -> None:
@@ -475,6 +487,7 @@ class CockpitSystems:
         self.overhead.update(data)
         self.oxygen.update(data)
         self.cabin.update(data)
+        self.parking_brake.update(data)
         self.clock.update(data)
         # Light states are stored in the panel itself, so no update needed
 
