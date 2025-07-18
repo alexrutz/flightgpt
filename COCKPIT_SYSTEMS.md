@@ -46,7 +46,7 @@ Handle engine start requests and APU start/stop commands.
 Monitors battery charge, APU status and RAT deployment.
 
 ## Fuel Panel
-Displays tank quantities and manages fuel crossfeed.
+Displays left, right and total tank quantities and manages fuel crossfeed.
 
 ## Flight Control Panel
 Manually commands landing gear, flap and speedbrake positions.

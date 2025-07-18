@@ -114,6 +114,7 @@ class A320Cockpit:
         self.overhead.update(data)
         self.hydraulic_panel.update(data)
         self.bleed_air_panel.update(data)
+        self.fuel.update(data)
         self.cabin_signs.update(data)
         self.parking_brake.update(data)
         self.brakes_display.update(data)
