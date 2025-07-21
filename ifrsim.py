@@ -4,6 +4,8 @@ import math
 import random
 from tcas import TCASSystem
 from complex_navigation import ComplexNavigationSystem
+from navdb import NavDatabase
+from a320_systems import FlightManagementSystem
 
 
 class PIDController:
@@ -1425,6 +1427,10 @@ class A320IFRSim:
         self.target_psi = 0  # heading degrees
         self.target_speed = 250  # knots
         self.time_s = 0.0
+        self.nav_db = NavDatabase(
+            "data/navdb/airports.csv",
+            "data/navdb/waypoints.csv",
+        )
         self.engines = EngineSystem(
             [
                 Engine(self.fdm, 0, failure_chance=5e-5, fire_chance=1e-5),
@@ -1455,14 +1461,12 @@ class A320IFRSim:
         self.weather_radar = WeatherRadarSystem(self.environment)
         self.fire_suppr = FireSuppressionSystem(self.engines)
         self.master_caution = MasterCautionSystem()
-        self.nav = ComplexNavigationSystem(
-            self.fdm,
-            [
-                (37.63, -122.02, None),
-                (37.60, -121.98, None),
-                (37.60, -122.05, None),
-            ],
-        )
+        self.nav = ComplexNavigationSystem(self.fdm)
+        self.fms = FlightManagementSystem(self.nav, self.nav_db)
+        try:
+            self.fms.load_route_by_idents(["KJFK", "WPT1", "KLAX"])
+        except Exception:
+            pass
         self.ils = ILSSystem(self.fdm, 37.60, -122.05, 270.0, 10.0)
         self.autopilot = Autopilot(
             self.fdm,

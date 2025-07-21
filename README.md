@@ -103,6 +103,14 @@ The primary flight display now exposes simple flight director pitch and roll
 commands from the autopilot for external indicators.
 No graphics are provided – the goal is to use external hardware like LED displays or buttons for cockpit interaction.
 
+## Navigation database
+
+The simulator now loads a simple navigation database from CSV files in
+`data/navdb`. The provided files include only a few sample airports and
+waypoints. Replace them with a full dataset (for example from the
+open-source [OurAirports](https://ourairports.com/data/) project) to fly
+real-world routes.
+
 ## Cockpit systems
 See [COCKPIT_SYSTEMS.md](COCKPIT_SYSTEMS.md) for an overview of the panels and displays modeled in the cockpit.
 

@@ -103,9 +103,11 @@ class FlightManagementSystem:
     """Very small FMS handling a route of waypoints."""
 
     nav: ComplexNavigationSystem
+    nav_db: "NavDatabase | None"
 
-    def __init__(self, nav: ComplexNavigationSystem) -> None:
+    def __init__(self, nav: ComplexNavigationSystem, nav_db: "NavDatabase | None" = None) -> None:
         self.nav = nav
+        self.nav_db = nav_db
 
     @property
     def waypoints(self) -> List[tuple]:
@@ -115,6 +117,18 @@ class FlightManagementSystem:
         """Load an entirely new route."""
         self.nav.waypoints = list(wpts)
         self.nav.index = 0
+
+    def load_route_by_idents(self, idents: List[str]) -> None:
+        """Load route from waypoint or airport identifiers using the nav database."""
+        if not self.nav_db:
+            raise ValueError("Navigation database not configured")
+        waypoints: List[tuple] = []
+        for ident in idents:
+            coords = self.nav_db.lookup(ident)
+            if not coords:
+                raise ValueError(f"Unknown fix identifier: {ident}")
+            waypoints.append((*coords, None))
+        self.load_route(waypoints)
 
     def add_waypoint(
         self, lat_deg: float, lon_deg: float, alt_ft: Optional[float] = None
