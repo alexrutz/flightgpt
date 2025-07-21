@@ -554,6 +554,18 @@ class MCDUDisplay:
 
 
 @dataclass
+class ECAMPageDisplay:
+    """Store textual ECAM page data."""
+
+    pages: dict[str, List[str]] = field(default_factory=dict)
+
+    def update(self, data: dict) -> None:
+        pages = data.get("ecam_pages")
+        if pages is not None:
+            self.pages = {name: list(lines) for name, lines in pages.items()}
+
+
+@dataclass
 class CabinSignsPanel:
     """Manage seatbelt and no smoking signs."""
 
@@ -687,6 +699,7 @@ class CockpitSystems:
     brakes: BrakesPanel = field(default_factory=BrakesPanel)
     clock: ClockPanel = field(default_factory=ClockPanel)
     mcdu: MCDUDisplay = field(default_factory=MCDUDisplay)
+    ecam_pages: ECAMPageDisplay = field(default_factory=ECAMPageDisplay)
 
     def update(self, data: dict) -> None:
         """Update all panels from a simulation snapshot."""
@@ -712,6 +725,7 @@ class CockpitSystems:
         self.brakes.update(data)
         self.clock.update(data)
         self.mcdu.update(data.get("mcdu", {}))
+        self.ecam_pages.update(data)
         # Light states are stored in the panel itself, so no update needed
 
     def snapshot(self) -> dict:
@@ -750,5 +764,6 @@ class CockpitSystems:
             "brakes": asdict(self.brakes),
             "clock": {"time_s": self.clock.time_s, "time_hms": self.clock.time_hms},
             "mcdu": asdict(self.mcdu),
+            "ecam_pages": self.ecam_pages.pages,
         }
 

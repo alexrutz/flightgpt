@@ -36,6 +36,7 @@ from a320_systems import (
     CockpitSystems,
 )
 from mcdu import MCDU
+from ecam import ECAM
 
 
 class A320Cockpit:
@@ -74,6 +75,7 @@ class A320Cockpit:
         self.fms = FlightManagementSystem(self.sim.nav, self.sim.nav_db)
         self.mcdu = MCDU(self.fms)
         self.cockpit_systems = CockpitSystems()
+        self.ecam = ECAM(self.cockpit_systems)
 
     def set_seatbelt_sign(self, on: bool) -> None:
         """Toggle the seatbelt sign."""
@@ -156,6 +158,7 @@ class A320Cockpit:
             "lateral_mode": self.sim.autopilot.lateral_mode,
         }
         mcdu_pages = self.mcdu.all_pages()
+        ecam_pages = self.ecam.all_pages()
         cockpit_data = {
             **data,
             "warnings": warnings,
@@ -169,6 +172,7 @@ class A320Cockpit:
                 "active_index": self.fms.nav.index,
                 "pages": mcdu_pages,
             },
+            "ecam_pages": ecam_pages,
         }
         self.cockpit_systems.update(cockpit_data)
         return {
@@ -188,6 +192,7 @@ class A320Cockpit:
                 "fuel_lbs": self.ecam_display.fuel_lbs,
                 "apu_flow_pph": self.ecam_display.apu_flow_pph,
                 "fire_bottles": self.ecam_display.fire_bottles,
+                "pages": ecam_pages,
             },
             "radio": {
                 "com1_active": self.radio.com1_active,

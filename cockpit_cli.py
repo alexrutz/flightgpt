@@ -36,6 +36,8 @@ HELP_TEXT = """Available commands:
   wpalt INDEX ALT     - set altitude constraint for waypoint
   mcdu pages          - list available MCDU pages
   mcdu PAGE           - show a textual MCDU page
+  ecam pages          - list available ECAM pages
+  ecam PAGE           - show a textual ECAM page
   quit                - exit the program"""
 
 
@@ -311,6 +313,21 @@ def main() -> None:
             page = sub
             try:
                 lines = cp.mcdu.get_page(page)
+            except Exception as exc:
+                print(f"Error: {exc}")
+            else:
+                for line in lines:
+                    print(line)
+            continue
+        if cmd == "ecam" and args:
+            sub = args[0]
+            if sub == "pages":
+                for name in cp.ecam.list_pages():
+                    print(name)
+                continue
+            page = sub
+            try:
+                lines = cp.ecam.get_page(page)
             except Exception as exc:
                 print(f"Error: {exc}")
             else:

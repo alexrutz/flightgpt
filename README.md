@@ -146,6 +146,9 @@ representation of all MCDU pages so external software can mirror the display.
 A new `mcdu pages` command lists all available pages and `mcdu PAGE` prints the
 textual representation of a selected page. The built-in pages include an index
 (`idx`) plus `f-plan`, `prog` and `init`.
+The ECAM has received similar treatment. The cockpit snapshot now contains a
+textual representation of all ECAM pages. Use `ecam pages` to list them and
+`ecam PAGE` to view a specific page like `eng` or `fuel`.
 
 4. Run the cockpit system snapshot example:
 ```bash

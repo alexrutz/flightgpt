@@ -17,7 +17,9 @@ can mimic the real Airbus layout.
 Reports N1 thrust levels, oil pressure and temperature, exhaust gas
 temperature, remaining fuel and APU bleed flow. It also shows the number of
 available fire bottles.  Each engine is tracked individually and a simplified
-fuel flow indicator helps monitor consumption and diagnose failures.
+fuel flow indicator helps monitor consumption and diagnose failures. The ECAM
+provides several textual pages such as `ENG`, `FUEL` and `ELEC` which can be
+listed and displayed through the CLI.
 
 ## Pressurization Display
 Shows cabin altitude, differential pressure and temperature.  The display is
