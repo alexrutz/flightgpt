@@ -43,3 +43,11 @@ class MCDU:
         if not 0 <= index < len(self.fms.waypoints):
             raise IndexError("Waypoint index out of range")
         self.fms.nav.index = index
+
+    def remove_waypoint(self, index: int) -> None:
+        """Delete a waypoint from the flight plan."""
+        self.fms.remove_waypoint(index)
+
+    def set_altitude(self, index: int, alt_ft: Optional[float]) -> None:
+        """Set the altitude constraint for a waypoint."""
+        self.fms.set_altitude_constraint(index, alt_ft)

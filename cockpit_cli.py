@@ -32,6 +32,8 @@ HELP_TEXT = """Available commands:
   plan                - show current flight plan
   route A B C         - load a new route by waypoint idents
   direct INDEX        - skip to flight plan waypoint
+  delwp INDEX         - delete waypoint at INDEX
+  wpalt INDEX ALT     - set altitude constraint for waypoint
   quit                - exit the program"""
 
 
@@ -265,6 +267,36 @@ def main() -> None:
                 continue
             try:
                 cp.mcdu.direct_to(idx)
+            except Exception as exc:
+                print(f"Error: {exc}")
+            continue
+        if cmd == "delwp" and args:
+            try:
+                idx = int(args[0])
+            except ValueError:
+                print("Invalid index")
+                continue
+            try:
+                cp.mcdu.remove_waypoint(idx)
+            except Exception as exc:
+                print(f"Error: {exc}")
+            continue
+        if cmd == "wpalt" and len(args) >= 2:
+            try:
+                idx = int(args[0])
+            except ValueError:
+                print("Invalid index")
+                continue
+            alt_arg = args[1]
+            alt = None
+            if alt_arg.lower() != "none":
+                try:
+                    alt = float(alt_arg)
+                except ValueError:
+                    print("Invalid altitude")
+                    continue
+            try:
+                cp.mcdu.set_altitude(idx, alt)
             except Exception as exc:
                 print(f"Error: {exc}")
             continue

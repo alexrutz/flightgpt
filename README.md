@@ -138,7 +138,9 @@ python cockpit_cli.py
 
 The CLI now includes a few basic MCDU commands. Use `plan` to list the current
 flight plan, `route` followed by waypoint identifiers to load a new route and
-`direct` with an index to skip ahead to a specific waypoint.
+`direct` with an index to skip ahead to a specific waypoint.  Waypoints can be
+deleted with `delwp INDEX` and altitude constraints set using `wpalt INDEX ALT`
+(use `none` to clear a constraint).
 
 4. Run the cockpit system snapshot example:
 ```bash

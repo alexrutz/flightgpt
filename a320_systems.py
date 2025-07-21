@@ -144,6 +144,21 @@ class FlightManagementSystem:
         if self.nav.index < len(self.nav.waypoints) - 1:
             self.nav.index += 1
 
+    def remove_waypoint(self, index: int) -> None:
+        """Delete a waypoint by index."""
+        if not 0 <= index < len(self.nav.waypoints):
+            raise IndexError("Waypoint index out of range")
+        del self.nav.waypoints[index]
+        if self.nav.index > index:
+            self.nav.index -= 1
+
+    def set_altitude_constraint(self, index: int, alt_ft: Optional[float]) -> None:
+        """Set or clear the altitude constraint for a waypoint."""
+        if not 0 <= index < len(self.nav.waypoints):
+            raise IndexError("Waypoint index out of range")
+        lat, lon, _ = self.nav.waypoints[index]
+        self.nav.waypoints[index] = (lat, lon, alt_ft)
+
 
 class AutopilotPanel:
     """Minimal interface to the underlying autopilot."""
