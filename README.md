@@ -143,8 +143,9 @@ deleted with `delwp INDEX` and altitude constraints set using `wpalt INDEX ALT`
 (use `none` to clear a constraint). The cockpit status snapshot now also
 includes the full flight plan, the active waypoint index and the textual
 representation of all MCDU pages so external software can mirror the display.
-A new `mcdu PAGE` command prints a textual representation of common pages like
-`f-plan`, `prog` and `init`.
+A new `mcdu pages` command lists all available pages and `mcdu PAGE` prints the
+textual representation of a selected page. The built-in pages include an index
+(`idx`) plus `f-plan`, `prog` and `init`.
 
 4. Run the cockpit system snapshot example:
 ```bash
