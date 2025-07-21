@@ -214,6 +214,14 @@ class A320Cockpit:
                 "fire_bottles": self.ecam_display.fire_bottles,
                 "pages": ecam_pages,
             },
+            "ewd": {
+                "n1": self.ecam_display.n1,
+                "egt": self.ecam_display.egt,
+                "oil_press": self.ecam_display.oil_press,
+                "oil_temp": self.ecam_display.oil_temp,
+                "fuel_lbs": self.ecam_display.fuel_lbs,
+                "warnings": warnings,
+            },
             "radio": {
                 "com1_active": self.radio.com1_active,
                 "com1_standby": self.radio.com1_standby,

@@ -31,6 +31,11 @@ Aggregates master caution, stall, ground proximity, overspeed, fire and TCAS
 warnings.  When multiple warnings are active the highest priority alert can be
 driven to external annunciators.
 
+## Engine Warning/System Display
+Combines key engine parameters with the active warning flags so a dedicated
+E/WD can be driven from the snapshot data. The display mirrors the engine
+N1, EGT, oil pressure and fuel figures alongside the master caution states.
+
 ## Flight Management System (FMS)
 A small wrapper around the navigation system that stores waypoints and allows
 basic route management.  Waypoints may include altitude constraints which the
