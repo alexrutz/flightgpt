@@ -84,6 +84,8 @@ Exterior lights such as landing, taxi and strobe lights can be
 controlled via the CLI for basic lighting management.
 An oxygen panel now displays the remaining supply for reference during
 high-altitude flight.
+A simple altimeter panel stores the barometric setting so the PFD can
+show the correct altitude reference.
 A small clock shows the elapsed simulation time for reference.
 A flight controls display now reports current gear, flap and speedbrake
 positions.

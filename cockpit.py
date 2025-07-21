@@ -28,6 +28,7 @@ from a320_systems import (
     LightingPanel,
     HydraulicPanel,
     BleedAirPanel,
+    AltimeterPanel,
     ParkingBrakePanel,
     BrakesPanel,
     ClockPanel,
@@ -62,6 +63,7 @@ class A320Cockpit:
         self.parking_brake = ParkingBrakePanel()
         self.brakes_display = BrakesPanel()
         self.clock = ClockPanel()
+        self.altimeter = AltimeterPanel()
         self.pfd = PrimaryFlightDisplay()
         self.ecam_display = EngineDisplay()
         self.pressurization = PressurizationDisplay()
@@ -102,6 +104,10 @@ class A320Cockpit:
         self.sim.set_parking_brake(on)
         self.parking_brake.engaged = on
 
+    def set_altimeter(self, pressure_hpa: float) -> None:
+        """Set the altimeter pressure setting."""
+        self.altimeter.pressure_hpa = pressure_hpa
+
     def step(self):
         """Advance the underlying simulation and return a status snapshot."""
         data = self.sim.step()
@@ -120,6 +126,7 @@ class A320Cockpit:
         self.brakes_display.update(data)
         self.oxygen_display.update(data)
         self.pressurization.update(data)
+        self.altimeter.update({"pressure_hpa": self.altimeter.pressure_hpa})
         self.clock.update(data)
         warnings = {
             "stall": data["stall_warning"],
@@ -147,6 +154,7 @@ class A320Cockpit:
             "apu_running": self.sim.electrics.apu_running,
             "autopilot": autopilot_info,
             "parking_brake": self.sim.brakes.parking_brake,
+            "pressure_hpa": self.altimeter.pressure_hpa,
         }
         self.cockpit_systems.update(cockpit_data)
         return {
@@ -227,6 +235,7 @@ class A320Cockpit:
                 "diff_psi": data["cabin_diff_psi"],
                 "temperature_c": data["cabin_temp_c"],
             },
+            "altimeter": {"pressure_hpa": self.altimeter.pressure_hpa},
             "oxygen": {"level": data["oxygen_level"]},
             "cabin_signs": {
                 "seatbelt": self.cabin_signs.seatbelt_on,

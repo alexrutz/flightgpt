@@ -88,6 +88,10 @@ Shows current brake temperature and whether the autobrake system is active.
 ## Oxygen Panel
 Shows the remaining oxygen supply for reference.
 
+## Altimeter Panel
+Stores the current barometric setting used by the primary flight
+display.
+
 ## Clock Panel
 Displays the elapsed simulation time.
 

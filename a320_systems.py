@@ -67,6 +67,17 @@ class PressurizationDisplay:
 
 
 @dataclass
+class AltimeterPanel:
+    """Set and display the altimeter pressure setting."""
+
+    pressure_hpa: float = 1013.25
+
+    def update(self, data: dict) -> None:
+        if "pressure_hpa" in data:
+            self.pressure_hpa = data["pressure_hpa"]
+
+
+@dataclass
 class WarningPanel:
     """Aggregate important warning flags."""
 
@@ -575,6 +586,7 @@ class CockpitSystems:
     bleed_air: BleedAirPanel = field(default_factory=BleedAirPanel)
     oxygen: 'OxygenPanel' = field(default_factory=lambda: OxygenPanel())
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
+    altimeter: AltimeterPanel = field(default_factory=AltimeterPanel)
     fuel: FuelPanel = field(default_factory=FuelPanel)
     lights: LightingPanel = field(default_factory=LightingPanel)
     controls: FlightControlsDisplay = field(default_factory=FlightControlsDisplay)
@@ -597,6 +609,7 @@ class CockpitSystems:
         self.controls.update(data)
         self.overhead.update(data)
         self.fuel.update(data)
+        self.altimeter.update(data)
         self.oxygen.update(data)
         self.cabin.update(data)
         self.parking_brake.update(data)
@@ -629,6 +642,7 @@ class CockpitSystems:
             "hydraulics": asdict(self.hydraulics),
             "bleed_air": asdict(self.bleed_air),
             "fuel": self.fuel.to_dict(),
+            "altimeter": asdict(self.altimeter),
             "oxygen": asdict(self.oxygen),
             "cabin": asdict(self.cabin),
             "lights": asdict(self.lights),
