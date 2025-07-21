@@ -109,8 +109,8 @@ The simulator loads airport and waypoint information from CSV files in
 `data/navdb`. The repository ships with only a handful of example entries.
 Run `scripts/update_navdb.py` to download the full
 [OurAirports](https://ourairports.com/data/) database and update the
-`airports.csv` file automatically. Using the complete dataset allows you to
-plan real-world routes by airport identifier.
+`airports.csv` and `waypoints.csv` files automatically. Using the complete
+dataset allows you to plan real-world routes by airport or navaid identifier.
 
 ## Cockpit systems
 See [COCKPIT_SYSTEMS.md](COCKPIT_SYSTEMS.md) for an overview of the panels and displays modeled in the cockpit.
