@@ -114,6 +114,26 @@ class A320Cockpit:
         """Set the altimeter pressure setting."""
         self.altimeter.pressure_hpa = pressure_hpa
 
+    def start_apu(self) -> None:
+        """Start the APU via the overhead panel."""
+        self.overhead.start_apu()
+
+    def stop_apu(self) -> None:
+        """Stop the APU via the overhead panel."""
+        self.overhead.stop_apu()
+
+    def enable_crossfeed(self) -> None:
+        """Enable fuel crossfeed via the overhead panel."""
+        self.overhead.enable_crossfeed()
+
+    def disable_crossfeed(self) -> None:
+        """Disable fuel crossfeed via the overhead panel."""
+        self.overhead.disable_crossfeed()
+
+    def toggle_crossfeed(self) -> None:
+        """Toggle fuel crossfeed via the overhead panel."""
+        self.overhead.toggle_crossfeed()
+
     def step(self):
         """Advance the underlying simulation and return a status snapshot."""
         data = self.sim.step()
