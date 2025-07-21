@@ -155,6 +155,9 @@ class A320Cockpit:
             "vertical_mode": self.sim.autopilot.vertical_mode,
             "lateral_mode": self.sim.autopilot.lateral_mode,
         }
+        mcdu_pages = {
+            name: self.mcdu.get_page(name) for name in self.mcdu.list_pages()
+        }
         cockpit_data = {
             **data,
             "warnings": warnings,
@@ -166,6 +169,7 @@ class A320Cockpit:
             "mcdu": {
                 "flight_plan": [tuple(wp) for wp in self.fms.waypoints],
                 "active_index": self.fms.nav.index,
+                "pages": mcdu_pages,
             },
         }
         self.cockpit_systems.update(cockpit_data)
@@ -244,6 +248,7 @@ class A320Cockpit:
             "mcdu": {
                 "flight_plan": [tuple(wp) for wp in self.fms.waypoints],
                 "active_index": self.fms.nav.index,
+                "pages": mcdu_pages,
             },
             "fuel": {
                 "left_lbs": data["fuel_left_lbs"],

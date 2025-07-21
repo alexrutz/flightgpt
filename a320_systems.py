@@ -536,10 +536,11 @@ class OxygenPanel:
 
 @dataclass
 class MCDUDisplay:
-    """Expose the flight plan and active waypoint index."""
+    """Expose the flight plan, active waypoint and page contents."""
 
     flight_plan: List[tuple] = field(default_factory=list)
     active_index: int = 0
+    pages: dict[str, List[str]] = field(default_factory=dict)
 
     def update(self, data: dict) -> None:
         plan = data.get("flight_plan")
@@ -547,6 +548,9 @@ class MCDUDisplay:
             self.flight_plan = [tuple(wp) for wp in plan]
         if "active_index" in data:
             self.active_index = data["active_index"]
+        pages = data.get("pages")
+        if pages is not None:
+            self.pages = {name: list(lines) for name, lines in pages.items()}
 
 
 @dataclass
