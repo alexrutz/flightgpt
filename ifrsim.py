@@ -1504,8 +1504,13 @@ class A320IFRSim:
         """Engage or release the parking brake."""
         self.brakes.set_parking_brake(on)
 
-    def step(self):
+    def step(self, real_time: bool = True):
+        """Advance the simulation by one time step.
+
+        When *real_time* is True (the default) the function will block so
+        that the simulated time matches real elapsed time."""
         dt = self.fdm.get_delta_t()
+        start = time.perf_counter()
         self.time_s += dt
         self.environment.update(dt)
         self.starter.update(dt)
@@ -1573,6 +1578,11 @@ class A320IFRSim:
         self.master_caution.set_warning("fire", fire)
         caution = self.master_caution.is_active()
         self.fdm.run()
+        elapsed = time.perf_counter() - start
+        if real_time:
+            delay = dt - elapsed
+            if delay > 0:
+                time.sleep(delay)
         return {
             "altitude_ft": alt,
             "speed_kt": speed,
@@ -1631,9 +1641,11 @@ class A320IFRSim:
             "time_s": self.time_s,
         }
 
-    def run(self, steps=600):
+    def run(self, steps=600, real_time: bool = True):
+        """Run the simulation for a number of steps."""
         for i in range(steps):
-            data = self.step()
+            loop_start = time.perf_counter()
+            data = self.step(real_time=False)
             if i % 50 == 0:
                 tcas_str = "NONE"
                 if data["tcas_alert"] is not None:
@@ -1672,7 +1684,11 @@ class A320IFRSim:
                     f"mc={'ON' if data['master_caution'] else 'OFF'} "
                     f"tcas={tcas_str}"
                 )
-            time.sleep(self.fdm.get_delta_t())
+            if real_time:
+                elapsed = time.perf_counter() - loop_start
+                delay = self.fdm.get_delta_t() - elapsed
+                if delay > 0:
+                    time.sleep(delay)
 
 
 if __name__ == "__main__":
