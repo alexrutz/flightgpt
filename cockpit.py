@@ -28,6 +28,7 @@ from a320_systems import (
     LightingPanel,
     HydraulicPanel,
     BleedAirPanel,
+    EnvironmentPanel,
     AltimeterPanel,
     ParkingBrakePanel,
     BrakesPanel,
@@ -57,6 +58,7 @@ class A320Cockpit:
         self.overhead = OverheadPanel()
         self.hydraulic_panel = HydraulicPanel()
         self.bleed_air_panel = BleedAirPanel()
+        self.environment_panel = EnvironmentPanel()
         self.cabin_signs = CabinSignsPanel()
         self.oxygen_display = OxygenPanel()
         self.lights = LightingPanel()
@@ -120,6 +122,7 @@ class A320Cockpit:
         self.overhead.update(data)
         self.hydraulic_panel.update(data)
         self.bleed_air_panel.update(data)
+        self.environment_panel.update(data)
         self.fuel.update(data)
         self.cabin_signs.update(data)
         self.parking_brake.update(data)
@@ -213,6 +216,10 @@ class A320Cockpit:
                 "pressure": self.bleed_air_panel.pressure,
                 "anti_ice_on": self.bleed_air_panel.anti_ice_on,
                 "wing_anti_ice_on": self.bleed_air_panel.wing_anti_ice_on,
+            },
+            "environment": {
+                "temperature_c": data["outside_temp_c"],
+                "precip_intensity": data["precip_intensity"],
             },
             "weather_radar": self.weather_radar.detecting,
             "tcas_display": {

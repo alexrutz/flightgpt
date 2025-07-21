@@ -76,6 +76,9 @@ Shows the current hydraulic system pressure.
 ## Bleed Air Panel
 Displays bleed air pressure along with engine and wing anti-ice status.
 
+## Environment Panel
+Reports the outside air temperature and current precipitation intensity.
+
 ## Cabin Signs Panel
 Tracks the seatbelt and no smoking signs.
 

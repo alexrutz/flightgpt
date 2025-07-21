@@ -453,6 +453,20 @@ class BleedAirPanel:
 
 
 @dataclass
+class EnvironmentPanel:
+    """Display outside temperature and precipitation."""
+
+    temperature_c: float = 0.0
+    precipitation: float = 0.0
+
+    def update(self, data: dict) -> None:
+        if "outside_temp_c" in data:
+            self.temperature_c = data["outside_temp_c"]
+        if "precip_intensity" in data:
+            self.precipitation = data["precip_intensity"]
+
+
+@dataclass
 class OxygenPanel:
     """Display remaining oxygen supply."""
 
@@ -584,6 +598,7 @@ class CockpitSystems:
     overhead: OverheadPanel = field(default_factory=OverheadPanel)
     hydraulics: HydraulicPanel = field(default_factory=HydraulicPanel)
     bleed_air: BleedAirPanel = field(default_factory=BleedAirPanel)
+    environment: EnvironmentPanel = field(default_factory=EnvironmentPanel)
     oxygen: 'OxygenPanel' = field(default_factory=lambda: OxygenPanel())
     cabin: CabinSignsPanel = field(default_factory=CabinSignsPanel)
     altimeter: AltimeterPanel = field(default_factory=AltimeterPanel)
@@ -611,6 +626,7 @@ class CockpitSystems:
         self.fuel.update(data)
         self.altimeter.update(data)
         self.oxygen.update(data)
+        self.environment.update(data)
         self.cabin.update(data)
         self.parking_brake.update(data)
         self.brakes.update(data)
@@ -641,6 +657,7 @@ class CockpitSystems:
             "overhead": asdict(self.overhead),
             "hydraulics": asdict(self.hydraulics),
             "bleed_air": asdict(self.bleed_air),
+            "environment": asdict(self.environment),
             "fuel": self.fuel.to_dict(),
             "altimeter": asdict(self.altimeter),
             "oxygen": asdict(self.oxygen),
