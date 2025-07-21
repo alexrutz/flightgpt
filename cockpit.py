@@ -57,7 +57,7 @@ class A320Cockpit:
         self.nav_display = NavigationDisplay()
         self.tcas_display = TCASDisplay()
         self.system_status = SystemsStatusPanel()
-        self.overhead = OverheadPanel()
+        self.overhead = OverheadPanel(self.sim.electrics, self.sim.fuel)
         self.hydraulic_panel = HydraulicPanel()
         self.bleed_air_panel = BleedAirPanel()
         self.environment_panel = EnvironmentPanel()
@@ -74,7 +74,7 @@ class A320Cockpit:
         self.warnings_panel = WarningPanel()
         self.fms = FlightManagementSystem(self.sim.nav, self.sim.nav_db)
         self.mcdu = MCDU(self.fms)
-        self.cockpit_systems = CockpitSystems()
+        self.cockpit_systems = CockpitSystems(overhead=self.overhead)
         self.ecam = ECAM(self.cockpit_systems)
 
     def set_seatbelt_sign(self, on: bool) -> None:

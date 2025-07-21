@@ -110,7 +110,8 @@ of the major systems can be assessed at a glance.
 
 ## Overhead Panel
 Indicates APU running state and fuel crossfeed status similar to the annunciator
-lights on a real overhead panel.
+lights on a real overhead panel. The panel can also start or stop the APU and
+toggle fuel crossfeed just like the separate APU and fuel controls.
 
 ## Hydraulic Panel
 Shows the current hydraulic system pressure.  Loss of pressure reduces control

@@ -472,14 +472,50 @@ class SystemsStatusPanel:
 
 @dataclass
 class OverheadPanel:
-    """Monitor high level aircraft system states."""
+    """Monitor and control high level aircraft system states."""
 
+    electrics: Any | None = field(default=None, repr=False)
+    fuel: Any | None = field(default=None, repr=False)
     apu_running: bool = False
     crossfeed: bool = False
 
+    def start_apu(self) -> None:
+        if self.electrics is not None:
+            self.electrics.start_apu()
+        self.apu_running = True
+
+    def stop_apu(self) -> None:
+        if self.electrics is not None:
+            self.electrics.stop_apu()
+        self.apu_running = False
+
+    def enable_crossfeed(self) -> None:
+        if self.fuel is not None:
+            self.fuel.crossfeed_on = True
+        self.crossfeed = True
+
+    def disable_crossfeed(self) -> None:
+        if self.fuel is not None:
+            self.fuel.crossfeed_on = False
+        self.crossfeed = False
+
+    def toggle_crossfeed(self) -> None:
+        if self.fuel is not None:
+            self.fuel.crossfeed_on = not self.fuel.crossfeed_on
+            self.crossfeed = self.fuel.crossfeed_on
+        else:
+            self.crossfeed = not self.crossfeed
+
+    def to_dict(self) -> dict:
+        return {"apu_running": self.apu_running, "crossfeed": self.crossfeed}
+
     def update(self, data: dict) -> None:
-        self.apu_running = data.get("apu_running", False)
-        self.crossfeed = data.get("crossfeed", False)
+        if "apu_running" in data:
+            self.apu_running = data["apu_running"]
+        if "crossfeed" in data:
+            self.crossfeed = data["crossfeed"]
+        elif self.fuel is not None:
+            self.crossfeed = self.fuel.crossfeed_on
 
 
 @dataclass
@@ -749,7 +785,7 @@ class CockpitSystems:
                 "mode": self.transponder.mode,
             },
             "systems": asdict(self.systems),
-            "overhead": asdict(self.overhead),
+            "overhead": self.overhead.to_dict(),
             "hydraulics": asdict(self.hydraulics),
             "electrical": asdict(self.electrical),
             "bleed_air": asdict(self.bleed_air),
