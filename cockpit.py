@@ -150,6 +150,7 @@ class A320Cockpit:
             "autobrake_level": self.sim.autobrake.level,
             "autobrake_active": data["autobrake_active"],
             "automation": self.sim.autopilot.auto_manage_systems,
+            "vertical_mode": self.sim.autopilot.vertical_mode,
         }
         cockpit_data = {
             **data,

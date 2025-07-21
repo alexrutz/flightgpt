@@ -1189,6 +1189,7 @@ class Autopilot:
         self.climb_vs_fpm = climb_vs_fpm
         self.descent_vs_fpm = descent_vs_fpm
         self.auto_manage_systems = auto_manage_systems
+        self.vertical_mode = "VS"
 
     def engage(self) -> None:
         """Activate the autopilot."""
@@ -1279,6 +1280,7 @@ class Autopilot:
         else:
             speed = f.get_property_value("velocities/vt-fps") / 1.68781
         vs = f.get_property_value("velocities/h-dot-fps")  # ft/s
+        vertical_mode = "VS"
 
         loc_dev = None
         gs_dev = None
@@ -1288,7 +1290,10 @@ class Autopilot:
             if loc_dev is not None:
                 self.heading = self.ils.hdg + loc_dev
                 self.altitude = alt - gs_dev
-
+                vertical_mode = "APP"
+            else:
+                vertical_mode = "VS"
+        
         nav_dist = None
         if self.nav is not None:
             nav_bearing, nav_dist, nav_alt = self.nav.update()
@@ -1308,6 +1313,7 @@ class Autopilot:
                     self.climb_vs_fpm,
                     max(self.descent_vs_fpm, vs_wp),
                 )
+                vertical_mode = "VNAV"
 
         agl = f.get_property_value("position/h-agl-ft")
         on_ground = agl < 5.0
@@ -1327,6 +1333,7 @@ class Autopilot:
         else:
             vs_target_fpm = self.alt_pid.update(alt_error, self.dt) * 60.0
             self.vs_target_fpm = vs_target_fpm
+            vertical_mode = "ALT"
         vs_target_fpm = max(min(vs_target_fpm, 3000.0), -3000.0)
         vs_error = vs_target_fpm / 60.0 - vs
         pitch_cmd = 0.0
@@ -1371,6 +1378,7 @@ class Autopilot:
         egt_list = self.engine.egt_list()
         oil_p = self.engine.oil_pressure()
         oil_t = self.engine.oil_temperature()
+        self.vertical_mode = vertical_mode
         return (
             alt,
             speed,

@@ -38,7 +38,9 @@ autopilot uses for simple vertical navigation.
 Interfaces with the autopilot and autothrottle. The display shows current
 engagement state, targets and autobrake information.  The autopilot can
 automatically manage gear, flaps and speedbrake as well as track altitude
-constraints provided by the FMS.
+constraints provided by the FMS. It also reports the active vertical mode
+(VS, ALT, VNAV or APP) so external displays can mimic the Airbus flight mode
+annunciations.
 
 ## Radio Panel
 Provides simple COM1/COM2 frequency management.  Active and standby
