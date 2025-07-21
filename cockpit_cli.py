@@ -180,9 +180,9 @@ def main() -> None:
             continue
         if cmd == "xfeed" and args:
             if args[0] == "on":
-                cp.fuel.enable_crossfeed()
+                cp.overhead.enable_crossfeed()
             elif args[0] == "off":
-                cp.fuel.disable_crossfeed()
+                cp.overhead.disable_crossfeed()
             else:
                 print("Usage: xfeed on|off")
             continue
@@ -336,9 +336,9 @@ def main() -> None:
             continue
         if cmd == "apu" and args:
             if args[0] == "start":
-                cp.apu.start()
+                cp.overhead.start_apu()
             elif args[0] == "stop":
-                cp.apu.stop()
+                cp.overhead.stop_apu()
             else:
                 print("Usage: apu start|stop")
             continue
