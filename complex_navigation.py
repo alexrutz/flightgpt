@@ -10,14 +10,52 @@ import math
 class ComplexNavigationSystem:
     """Manage a route of waypoints with lateral and vertical guidance."""
 
-    def __init__(self, fdm, waypoints: list[tuple] | None = None, xtrack_gain: float = 5.0) -> None:
+    def __init__(
+        self,
+        fdm,
+        waypoints: list[tuple] | None = None,
+        xtrack_gain: float = 5.0,
+    ) -> None:
         self.fdm = fdm
         self.waypoints = waypoints or []
         self.index = 0
         self.xtrack_gain = xtrack_gain
 
-    def add_waypoint(self, lat_deg: float, lon_deg: float, alt_ft: float | None = None) -> None:
-        self.waypoints.append((lat_deg, lon_deg, alt_ft))
+    def add_waypoint(
+        self,
+        lat_deg: float,
+        lon_deg: float,
+        alt_ft: float | None = None,
+        ident: str | None = None,
+    ) -> None:
+        """Append a waypoint with optional altitude and identifier."""
+        self.waypoints.append((lat_deg, lon_deg, alt_ft, ident))
+
+    def distance_to_waypoint(self) -> float | None:
+        """Return distance in NM from the current position to the active waypoint."""
+        if not self.waypoints or self.index >= len(self.waypoints):
+            return None
+        lat = self.fdm.get_property_value("position/lat-gc-deg")
+        lon = self.fdm.get_property_value("position/long-gc-deg")
+        wp = self.waypoints[self.index]
+        _, dist = self._bearing_distance(lat, lon, wp[0], wp[1])
+        return dist
+
+    def remaining_distance(self) -> float | None:
+        """Return approximate remaining route distance in NM."""
+        if not self.waypoints or self.index >= len(self.waypoints):
+            return None
+        lat = self.fdm.get_property_value("position/lat-gc-deg")
+        lon = self.fdm.get_property_value("position/long-gc-deg")
+        dist = self._bearing_distance(lat, lon, self.waypoints[self.index][0], self.waypoints[self.index][1])[1]
+        for i in range(self.index, len(self.waypoints) - 1):
+            dist += self._bearing_distance(
+                self.waypoints[i][0],
+                self.waypoints[i][1],
+                self.waypoints[i + 1][0],
+                self.waypoints[i + 1][1],
+            )[1]
+        return dist
 
     def _bearing_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> tuple[float, float]:
         lat1 = math.radians(lat1)
