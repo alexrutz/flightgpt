@@ -31,7 +31,9 @@ the cockpit interface.
 A simple navigation display shows distance to the active waypoint and ILS
 deviations, while a small systems page tracks hydraulic, electrical and
 bleed air pressure. An overhead panel monitors the APU and fuel crossfeed
-state.
+A new electrical panel reports generator failures and RAT deployment so
+power issues are easier to diagnose. An overhead panel monitors the APU and
+fuel crossfeed state.
 A simple TCAS display now reports the bearing, distance and altitude
 difference to any conflicting traffic.
 A new bleed air model now ties engine and APU performance to cabin

@@ -61,8 +61,9 @@ bleed air from the APU and the panel also allows shutting the APU down once the
 generators are online.
 
 ## Electrical Panel
-Monitors battery charge, generator output, APU status and RAT deployment.  The
-RAT automatically deploys if both generators and the APU fail, keeping essential
+Monitors battery charge, generator output and APU status. It now also reports
+when a generator has failed and whether the emergency RAT is deployed. The RAT
+automatically deploys if both generators and the APU fail, keeping essential
 systems powered.
 
 ## Fuel Panel

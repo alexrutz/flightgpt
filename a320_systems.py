@@ -282,6 +282,26 @@ class ElectricalPanel:
 
 
 @dataclass
+class ElectricalDisplay:
+    """Display electrical system status for the cockpit."""
+
+    charge: float = 0.0
+    apu_running: bool = False
+    generator_failed: bool = False
+    rat_deployed: bool = False
+
+    def update(self, data: dict) -> None:
+        if "elec_charge" in data:
+            self.charge = data["elec_charge"]
+        if "apu_running" in data:
+            self.apu_running = data["apu_running"]
+        if "generator_failed" in data:
+            self.generator_failed = data["generator_failed"]
+        if "rat_deployed" in data:
+            self.rat_deployed = data["rat_deployed"]
+
+
+@dataclass
 class FuelPanel:
     """Display fuel quantities and manage crossfeed."""
 
@@ -599,6 +619,7 @@ class CockpitSystems:
     systems: SystemsStatusPanel = field(default_factory=SystemsStatusPanel)
     overhead: OverheadPanel = field(default_factory=OverheadPanel)
     hydraulics: HydraulicPanel = field(default_factory=HydraulicPanel)
+    electrical: ElectricalDisplay = field(default_factory=ElectricalDisplay)
     bleed_air: BleedAirPanel = field(default_factory=BleedAirPanel)
     environment: EnvironmentPanel = field(default_factory=EnvironmentPanel)
     oxygen: 'OxygenPanel' = field(default_factory=lambda: OxygenPanel())
@@ -622,6 +643,7 @@ class CockpitSystems:
         self.autopilot.update(data.get("autopilot", {}))
         self.systems.update(data)
         self.hydraulics.update(data)
+        self.electrical.update(data)
         self.bleed_air.update(data)
         self.controls.update(data)
         self.overhead.update(data)
@@ -658,6 +680,7 @@ class CockpitSystems:
             "systems": asdict(self.systems),
             "overhead": asdict(self.overhead),
             "hydraulics": asdict(self.hydraulics),
+            "electrical": asdict(self.electrical),
             "bleed_air": asdict(self.bleed_air),
             "environment": asdict(self.environment),
             "fuel": self.fuel.to_dict(),

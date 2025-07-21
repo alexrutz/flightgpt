@@ -156,6 +156,7 @@ class A320Cockpit:
             **data,
             "warnings": warnings,
             "apu_running": self.sim.electrics.apu_running,
+            "generator_failed": self.sim.electrics.generator_failed,
             "autopilot": autopilot_info,
             "parking_brake": self.sim.brakes.parking_brake,
             "pressure_hpa": self.altimeter.pressure_hpa,
@@ -203,6 +204,7 @@ class A320Cockpit:
                 "charge": data["elec_charge"],
                 "apu_running": self.sim.electrics.apu_running,
                 "rat_deployed": data["rat_deployed"],
+                "generator_failed": self.sim.electrics.generator_failed,
             },
             "systems": {
                 "hydraulic_pressure": self.system_status.hydraulic_pressure,
