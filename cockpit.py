@@ -163,6 +163,10 @@ class A320Cockpit:
             "autopilot": autopilot_info,
             "parking_brake": self.sim.brakes.parking_brake,
             "pressure_hpa": self.altimeter.pressure_hpa,
+            "mcdu": {
+                "flight_plan": [tuple(wp) for wp in self.fms.waypoints],
+                "active_index": self.fms.nav.index,
+            },
         }
         self.cockpit_systems.update(cockpit_data)
         return {
@@ -236,6 +240,10 @@ class A320Cockpit:
             },
             "navigation": {
                 "active_waypoint": self.fms.active_waypoint(),
+            },
+            "mcdu": {
+                "flight_plan": [tuple(wp) for wp in self.fms.waypoints],
+                "active_index": self.fms.nav.index,
             },
             "fuel": {
                 "left_lbs": data["fuel_left_lbs"],

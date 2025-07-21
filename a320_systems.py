@@ -530,6 +530,21 @@ class OxygenPanel:
 
 
 @dataclass
+class MCDUDisplay:
+    """Expose the flight plan and active waypoint index."""
+
+    flight_plan: List[tuple] = field(default_factory=list)
+    active_index: int = 0
+
+    def update(self, data: dict) -> None:
+        plan = data.get("flight_plan")
+        if plan is not None:
+            self.flight_plan = [tuple(wp) for wp in plan]
+        if "active_index" in data:
+            self.active_index = data["active_index"]
+
+
+@dataclass
 class CabinSignsPanel:
     """Manage seatbelt and no smoking signs."""
 
@@ -662,6 +677,7 @@ class CockpitSystems:
     parking_brake: ParkingBrakePanel = field(default_factory=ParkingBrakePanel)
     brakes: BrakesPanel = field(default_factory=BrakesPanel)
     clock: ClockPanel = field(default_factory=ClockPanel)
+    mcdu: MCDUDisplay = field(default_factory=MCDUDisplay)
 
     def update(self, data: dict) -> None:
         """Update all panels from a simulation snapshot."""
@@ -686,6 +702,7 @@ class CockpitSystems:
         self.parking_brake.update(data)
         self.brakes.update(data)
         self.clock.update(data)
+        self.mcdu.update(data.get("mcdu", {}))
         # Light states are stored in the panel itself, so no update needed
 
     def snapshot(self) -> dict:
@@ -723,5 +740,6 @@ class CockpitSystems:
             "parking_brake": asdict(self.parking_brake),
             "brakes": asdict(self.brakes),
             "clock": {"time_s": self.clock.time_s, "time_hms": self.clock.time_hms},
+            "mcdu": asdict(self.mcdu),
         }
 

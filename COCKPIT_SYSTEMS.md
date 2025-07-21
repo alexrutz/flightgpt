@@ -40,6 +40,8 @@ managed by the FMS. Routes can be loaded from waypoint identifiers and the
 active waypoint can be changed or skipped. The CLI now supports `plan`, `route`
 and `direct` commands for basic flight plan editing. Waypoints can also be
 removed with `delwp INDEX` and altitude constraints set with `wpalt INDEX ALT`.
+The cockpit snapshot includes the flight plan and active waypoint index so
+external hardware can mirror the MCDU display.
 
 ## Autopilot Panel & Display
 Interfaces with the autopilot and autothrottle. The display shows current
