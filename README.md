@@ -71,6 +71,8 @@ An exhaust temperature model now tracks engine heat and can cause
 failures when limits are exceeded for even more realism.
 A simple master caution system now highlights active warnings from
 multiple subsystems.
+A compact engine warning/system display mirrors the current N1, EGT and oil
+readings alongside any active cautions.
 A simple vertical navigation mode adjusts climb and descent rates to
 meet waypoint altitude constraints when following a route.
 An approach mode now tracks an ILS localizer and glideslope for hands-off
@@ -149,6 +151,9 @@ textual representation of a selected page. The built-in pages include an index
 The ECAM has received similar treatment. The cockpit snapshot now contains a
 textual representation of all ECAM pages. Use `ecam pages` to list them and
 `ecam PAGE` to view a specific page like `eng` or `fuel`.
+The snapshot also exposes a combined Engine Warning/System display under the
+`ewd` key which mirrors engine data and active cautions.
+Use the `ewd` command in the CLI to print this summary.
 
 4. Run the cockpit system snapshot example:
 ```bash

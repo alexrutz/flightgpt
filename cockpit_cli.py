@@ -38,6 +38,7 @@ HELP_TEXT = """Available commands:
   mcdu PAGE           - show a textual MCDU page
   ecam pages          - list available ECAM pages
   ecam PAGE           - show a textual ECAM page
+  ewd                 - show the engine warning/system display
   quit                - exit the program"""
 
 
@@ -333,6 +334,20 @@ def main() -> None:
             else:
                 for line in lines:
                     print(line)
+            continue
+        if cmd == "ewd":
+            snapshot = cp.cockpit_systems.snapshot()
+            ewd = snapshot.get("ewd", {})
+            n1 = "/".join(f"{n:.0f}" for n in ewd.get("n1", []))
+            egt = "/".join(f"{e:.0f}" for e in ewd.get("egt", []))
+            line = (
+                f"N1 {n1} EGT {egt} OIL {ewd.get('oil_press', 0):.0f}psi "
+                f"FUEL {ewd.get('fuel_lbs', 0):.0f}LB"
+            )
+            active = [name.upper() for name, on in ewd.get("warnings", {}).items() if on]
+            if active:
+                line += " WARN " + " ".join(active)
+            print(line)
             continue
         if cmd == "apu" and args:
             if args[0] == "start":

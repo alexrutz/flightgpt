@@ -53,6 +53,28 @@ class EngineDisplay:
 
 
 @dataclass
+class EngineWarningDisplay:
+    """Summarize engine parameters and active warnings."""
+
+    n1: List[float] = field(default_factory=list)
+    egt: List[float] = field(default_factory=list)
+    oil_press: float = 0.0
+    oil_temp: float = 0.0
+    fuel_lbs: float = 0.0
+    warnings: dict[str, bool] = field(default_factory=dict)
+
+    def update(self, data: dict) -> None:
+        self.n1 = data.get("n1", [])
+        self.egt = data.get("egt", [])
+        self.oil_press = data.get("oil_press", 0.0)
+        self.oil_temp = data.get("oil_temp", 0.0)
+        self.fuel_lbs = data.get("fuel_lbs", 0.0)
+        warnings = data.get("warnings")
+        if warnings is not None:
+            self.warnings = dict(warnings)
+
+
+@dataclass
 class PressurizationDisplay:
     """Show basic cabin pressurization information."""
 
@@ -712,6 +734,7 @@ class CockpitSystems:
 
     pfd: PrimaryFlightDisplay = field(default_factory=PrimaryFlightDisplay)
     engine: EngineDisplay = field(default_factory=EngineDisplay)
+    ewd: EngineWarningDisplay = field(default_factory=EngineWarningDisplay)
     pressurization: PressurizationDisplay = field(default_factory=PressurizationDisplay)
     warnings: WarningPanel = field(default_factory=WarningPanel)
     navigation: NavigationDisplay = field(default_factory=NavigationDisplay)
@@ -741,6 +764,7 @@ class CockpitSystems:
         """Update all panels from a simulation snapshot."""
         self.pfd.update(data)
         self.engine.update(data)
+        self.ewd.update(data)
         self.pressurization.update(data)
         self.warnings.update({"warnings": data.get("warnings", {})})
         self.navigation.update(data)
@@ -769,6 +793,7 @@ class CockpitSystems:
         return {
             "pfd": asdict(self.pfd),
             "engine": asdict(self.engine),
+            "ewd": asdict(self.ewd),
             "pressurization": asdict(self.pressurization),
             "warnings": asdict(self.warnings),
             "navigation": asdict(self.navigation),
