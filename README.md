@@ -136,6 +136,10 @@ python ifrsim.py
 python cockpit_cli.py
 ```
 
+The CLI now includes a few basic MCDU commands. Use `plan` to list the current
+flight plan, `route` followed by waypoint identifiers to load a new route and
+`direct` with an index to skip ahead to a specific waypoint.
+
 4. Run the cockpit system snapshot example:
 ```bash
 python a320_cockpit_example.py

@@ -29,6 +29,9 @@ HELP_TEXT = """Available commands:
   strobelight on|off  - toggle the strobe light
   beacon on|off       - toggle the beacon light
   pbrake on|off       - set the parking brake
+  plan                - show current flight plan
+  route A B C         - load a new route by waypoint idents
+  direct INDEX        - skip to flight plan waypoint
   quit                - exit the program"""
 
 
@@ -240,6 +243,30 @@ def main() -> None:
                 cp.set_parking_brake(False)
             else:
                 print("Usage: pbrake on|off")
+            continue
+        if cmd == "plan":
+            plan = cp.mcdu.flight_plan()
+            for i, wp in enumerate(plan):
+                lat, lon, alt = wp
+                alt_str = f" {alt:.0f}ft" if alt is not None else ""
+                print(f"{i}: {lat:.4f}, {lon:.4f}{alt_str}")
+            continue
+        if cmd == "route" and args:
+            try:
+                cp.mcdu.load_route(args)
+            except Exception as exc:
+                print(f"Error: {exc}")
+            continue
+        if cmd == "direct" and args:
+            try:
+                idx = int(args[0])
+            except ValueError:
+                print("Invalid index")
+                continue
+            try:
+                cp.mcdu.direct_to(idx)
+            except Exception as exc:
+                print(f"Error: {exc}")
             continue
         if cmd == "apu" and args:
             if args[0] == "start":
