@@ -70,7 +70,7 @@ class A320Cockpit:
         self.ecam_display = EngineDisplay()
         self.pressurization = PressurizationDisplay()
         self.warnings_panel = WarningPanel()
-        self.fms = FlightManagementSystem(self.sim.nav)
+        self.fms = FlightManagementSystem(self.sim.nav, self.sim.nav_db)
         self.cockpit_systems = CockpitSystems()
 
     def set_seatbelt_sign(self, on: bool) -> None:
