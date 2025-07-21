@@ -34,6 +34,12 @@ A small wrapper around the navigation system that stores waypoints and allows
 basic route management.  Waypoints may include altitude constraints which the
 autopilot uses for simple vertical navigation.
 
+## MCDU
+The Multi-Function Control and Display Unit (MCDU) exposes the flight plan
+managed by the FMS. Routes can be loaded from waypoint identifiers and the
+active waypoint can be changed or skipped. The CLI now supports `plan`, `route`
+and `direct` commands for basic flight plan editing.
+
 ## Autopilot Panel & Display
 Interfaces with the autopilot and autothrottle. The display shows current
 engagement state, targets and autobrake information.  The autopilot can

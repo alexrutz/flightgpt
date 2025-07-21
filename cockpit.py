@@ -35,6 +35,7 @@ from a320_systems import (
     ClockPanel,
     CockpitSystems,
 )
+from mcdu import MCDU
 
 
 class A320Cockpit:
@@ -71,6 +72,7 @@ class A320Cockpit:
         self.pressurization = PressurizationDisplay()
         self.warnings_panel = WarningPanel()
         self.fms = FlightManagementSystem(self.sim.nav, self.sim.nav_db)
+        self.mcdu = MCDU(self.fms)
         self.cockpit_systems = CockpitSystems()
 
     def set_seatbelt_sign(self, on: bool) -> None:
