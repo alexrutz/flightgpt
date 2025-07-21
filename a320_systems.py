@@ -127,13 +127,17 @@ class FlightManagementSystem:
             coords = self.nav_db.lookup(ident)
             if not coords:
                 raise ValueError(f"Unknown fix identifier: {ident}")
-            waypoints.append((*coords, None))
+            waypoints.append((*coords, None, ident))
         self.load_route(waypoints)
 
     def add_waypoint(
-        self, lat_deg: float, lon_deg: float, alt_ft: Optional[float] = None
+        self,
+        lat_deg: float,
+        lon_deg: float,
+        alt_ft: Optional[float] = None,
+        ident: Optional[str] = None,
     ) -> None:
-        self.nav.add_waypoint(lat_deg, lon_deg, alt_ft)
+        self.nav.add_waypoint(lat_deg, lon_deg, alt_ft, ident)
 
     def active_waypoint(self) -> Optional[tuple]:
         if self.nav.index < len(self.nav.waypoints):
@@ -156,8 +160,9 @@ class FlightManagementSystem:
         """Set or clear the altitude constraint for a waypoint."""
         if not 0 <= index < len(self.nav.waypoints):
             raise IndexError("Waypoint index out of range")
-        lat, lon, _ = self.nav.waypoints[index]
-        self.nav.waypoints[index] = (lat, lon, alt_ft)
+        lat, lon, _, *rest = self.nav.waypoints[index]
+        ident = rest[0] if rest else None
+        self.nav.waypoints[index] = (lat, lon, alt_ft, ident)
 
 
 class AutopilotPanel:

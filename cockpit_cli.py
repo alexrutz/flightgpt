@@ -34,6 +34,7 @@ HELP_TEXT = """Available commands:
   direct INDEX        - skip to flight plan waypoint
   delwp INDEX         - delete waypoint at INDEX
   wpalt INDEX ALT     - set altitude constraint for waypoint
+  mcdu PAGE           - show a textual MCDU page
   quit                - exit the program"""
 
 
@@ -299,6 +300,16 @@ def main() -> None:
                 cp.mcdu.set_altitude(idx, alt)
             except Exception as exc:
                 print(f"Error: {exc}")
+            continue
+        if cmd == "mcdu" and args:
+            page = args[0]
+            try:
+                lines = cp.mcdu.get_page(page)
+            except Exception as exc:
+                print(f"Error: {exc}")
+            else:
+                for line in lines:
+                    print(line)
             continue
         if cmd == "apu" and args:
             if args[0] == "start":
