@@ -105,11 +105,12 @@ No graphics are provided – the goal is to use external hardware like LED displ
 
 ## Navigation database
 
-The simulator now loads a simple navigation database from CSV files in
-`data/navdb`. The provided files include only a few sample airports and
-waypoints. Replace them with a full dataset (for example from the
-open-source [OurAirports](https://ourairports.com/data/) project) to fly
-real-world routes.
+The simulator loads airport and waypoint information from CSV files in
+`data/navdb`. The repository ships with only a handful of example entries.
+Run `scripts/update_navdb.py` to download the full
+[OurAirports](https://ourairports.com/data/) database and update the
+`airports.csv` file automatically. Using the complete dataset allows you to
+plan real-world routes by airport identifier.
 
 ## Cockpit systems
 See [COCKPIT_SYSTEMS.md](COCKPIT_SYSTEMS.md) for an overview of the panels and displays modeled in the cockpit.
