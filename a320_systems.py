@@ -176,6 +176,7 @@ class AutopilotDisplay:
     autobrake_active: bool = False
     automation: bool = False
     vertical_mode: str = "VS"
+    lateral_mode: str = "HDG"
 
     def update(self, data: dict) -> None:
         self.engaged = data.get("engaged", False)
@@ -188,6 +189,7 @@ class AutopilotDisplay:
         self.autobrake_active = data.get("autobrake_active", False)
         self.automation = data.get("automation", False)
         self.vertical_mode = data.get("vertical_mode", self.vertical_mode)
+        self.lateral_mode = data.get("lateral_mode", self.lateral_mode)
 
 
 class RadioPanel:
