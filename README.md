@@ -118,6 +118,11 @@ python ifrsim.py
 python cockpit_cli.py
 ```
 
+4. Run the cockpit system snapshot example:
+```bash
+python a320_cockpit_example.py
+```
+
 The output shows altitude, airspeed, heading and remaining fuel every
 few seconds.  The aircraft model definition is stored in `data/A320`.
 
