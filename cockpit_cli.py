@@ -13,6 +13,7 @@ HELP_TEXT = """Available commands:
   hdg VALUE           - set target heading in deg
   spd VALUE           - set target speed in kt
   vs VALUE            - set target vertical speed in fpm
+  baro VALUE          - set altimeter pressure in hPa
   xfeed on|off        - enable or disable fuel crossfeed
   gear up|down        - move the landing gear
   flap VALUE          - set flaps (0.0-1.0)
@@ -46,6 +47,7 @@ def print_status(status: dict) -> None:
         f"SMOKE {'ON' if status['cabin_signs']['no_smoking'] else 'OFF'}"
         f" OXY {status['oxygen']['level']:.2f}"
         f" TIME {status['clock']['time']}"
+        f" BARO {status['altimeter']['pressure_hpa']:.1f}hPa"
         f" PBRK {'ON' if status['controls']['parking_brake'] else 'OFF'}"
     )
     tcas = status.get("tcas_display", {})
@@ -134,6 +136,12 @@ def main() -> None:
                 cp.autopilot.set_vs(float(args[0]))
             except ValueError:
                 print("Invalid vertical speed")
+            continue
+        if cmd == "baro" and args:
+            try:
+                cp.set_altimeter(float(args[0]))
+            except ValueError:
+                print("Invalid pressure")
             continue
         if cmd == "gear" and args:
             if args[0] in {"up", "down"}:
