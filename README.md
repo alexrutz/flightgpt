@@ -76,7 +76,8 @@ meet waypoint altitude constraints when following a route.
 An approach mode now tracks an ILS localizer and glideslope for hands-off
 landings.
 The autopilot display now reports the active vertical mode (VS, ALT, VNAV or APP)
-so external hardware can mimic the Airbus flight mode annunciations.
+and lateral mode (HDG, NAV or LOC) so external hardware can mimic the Airbus
+flight mode annunciations.
 Wing icing is now simulated and increases stall speed unless the wing
 anti-ice system is active.
 Flap and landing gear mechanisms can now jam when moved above their

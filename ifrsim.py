@@ -1190,6 +1190,7 @@ class Autopilot:
         self.descent_vs_fpm = descent_vs_fpm
         self.auto_manage_systems = auto_manage_systems
         self.vertical_mode = "VS"
+        self.lateral_mode = "HDG"
 
     def engage(self) -> None:
         """Activate the autopilot."""
@@ -1281,6 +1282,7 @@ class Autopilot:
             speed = f.get_property_value("velocities/vt-fps") / 1.68781
         vs = f.get_property_value("velocities/h-dot-fps")  # ft/s
         vertical_mode = "VS"
+        lateral_mode = "HDG"
 
         loc_dev = None
         gs_dev = None
@@ -1291,6 +1293,7 @@ class Autopilot:
                 self.heading = self.ils.hdg + loc_dev
                 self.altitude = alt - gs_dev
                 vertical_mode = "APP"
+                lateral_mode = "LOC"
             else:
                 vertical_mode = "VS"
         
@@ -1299,6 +1302,7 @@ class Autopilot:
             nav_bearing, nav_dist, nav_alt = self.nav.update()
             if nav_bearing is not None:
                 self.heading = nav_bearing
+                lateral_mode = "NAV"
             if nav_alt is not None:
                 self.altitude = nav_alt
             if (
@@ -1379,6 +1383,7 @@ class Autopilot:
         oil_p = self.engine.oil_pressure()
         oil_t = self.engine.oil_temperature()
         self.vertical_mode = vertical_mode
+        self.lateral_mode = lateral_mode
         return (
             alt,
             speed,
@@ -1404,6 +1409,7 @@ class Autopilot:
             ils_dist,
             self.systems.flap_operable,
             self.systems.gear_operable,
+            lateral_mode,
         )
 
 
@@ -1533,6 +1539,7 @@ class A320IFRSim:
             ils_dist,
             flap_ok,
             gear_ok,
+            _lat_mode,
         ) = self.autopilot.update()
         pitch_deg = self.fdm.get_property_value("attitude/pitch-deg")
         roll_deg = self.fdm.get_property_value("attitude/roll-deg")
