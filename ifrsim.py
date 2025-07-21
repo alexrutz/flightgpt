@@ -1548,6 +1548,8 @@ class A320IFRSim:
         flap = self.fdm.get_property_value("fcs/flap-pos-norm")
         gear = self.fdm.get_property_value("gear/gear-pos-norm")
         vs_fpm = self.fdm.get_property_value("velocities/h-dot-fps") * 60.0
+        outside_temp = self.environment.temperature_c
+        precip_intensity = self.environment.precip
 
         # Update master caution status
         self.master_caution.set_warning("stall", stall)
@@ -1609,6 +1611,8 @@ class A320IFRSim:
             "tcas_alert": tcas_alert,
             "master_caution": caution,
             "parking_brake": self.brakes.parking_brake,
+            "outside_temp_c": outside_temp,
+            "precip_intensity": precip_intensity,
             "time_s": self.time_s,
         }
 

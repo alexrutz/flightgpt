@@ -87,6 +87,7 @@ high-altitude flight.
 A simple altimeter panel stores the barometric setting so the PFD can
 show the correct altitude reference.
 A small clock shows the elapsed simulation time for reference.
+A new environment panel reports outside air temperature and precipitation intensity.
 A flight controls display now reports current gear, flap and speedbrake
 positions.
 The new `CockpitSystems` helper class aggregates all panels so they can be
