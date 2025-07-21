@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional, Any
 
-from ifrsim import NavigationSystem
+from complex_navigation import ComplexNavigationSystem
 
 
 @dataclass
@@ -102,9 +102,9 @@ class WarningPanel:
 class FlightManagementSystem:
     """Very small FMS handling a route of waypoints."""
 
-    nav: NavigationSystem
+    nav: ComplexNavigationSystem
 
-    def __init__(self, nav: NavigationSystem) -> None:
+    def __init__(self, nav: ComplexNavigationSystem) -> None:
         self.nav = nav
 
     @property

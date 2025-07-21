@@ -3,6 +3,7 @@ import time
 import math
 import random
 from tcas import TCASSystem
+from complex_navigation import ComplexNavigationSystem
 
 
 class PIDController:
@@ -1454,7 +1455,7 @@ class A320IFRSim:
         self.weather_radar = WeatherRadarSystem(self.environment)
         self.fire_suppr = FireSuppressionSystem(self.engines)
         self.master_caution = MasterCautionSystem()
-        self.nav = NavigationSystem(
+        self.nav = ComplexNavigationSystem(
             self.fdm,
             [
                 (37.63, -122.02, None),
