@@ -157,8 +157,6 @@ class A320Cockpit:
             "vertical_mode": self.sim.autopilot.vertical_mode,
             "lateral_mode": self.sim.autopilot.lateral_mode,
         }
-        mcdu_pages = self.mcdu.all_pages()
-        ecam_pages = self.ecam.all_pages()
         cockpit_data = {
             **data,
             "warnings": warnings,
@@ -170,11 +168,13 @@ class A320Cockpit:
             "mcdu": {
                 "flight_plan": [tuple(wp) for wp in self.fms.waypoints],
                 "active_index": self.fms.nav.index,
-                "pages": mcdu_pages,
             },
-            "ecam_pages": ecam_pages,
         }
         self.cockpit_systems.update(cockpit_data)
+        mcdu_pages = self.mcdu.all_pages()
+        ecam_pages = self.ecam.all_pages()
+        self.cockpit_systems.mcdu.update({"pages": mcdu_pages})
+        self.cockpit_systems.ecam_pages.update({"ecam_pages": ecam_pages})
         return {
             "pfd": {
                 "altitude_ft": self.pfd.altitude_ft,
