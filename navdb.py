@@ -21,22 +21,42 @@ class NavDatabase:
             reader = csv.DictReader(f)
             for row in reader:
                 try:
-                    lat = float(row["lat_deg"])
-                    lon = float(row["lon_deg"])
-                except (KeyError, ValueError):
+                    lat = float(
+                        row.get("lat_deg")
+                        or row.get("latitude_deg")
+                        or row.get("LAT_DEG")
+                    )
+                    lon = float(
+                        row.get("lon_deg")
+                        or row.get("longitude_deg")
+                        or row.get("LON_DEG")
+                    )
+                except (TypeError, ValueError):
                     continue
-                self.airports[row["ident"].strip().upper()] = (lat, lon)
+                ident = row.get("ident", "").strip().upper()
+                if ident:
+                    self.airports[ident] = (lat, lon)
 
     def _load_waypoints(self, path: str | Path) -> None:
         with open(path, newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 try:
-                    lat = float(row["lat_deg"])
-                    lon = float(row["lon_deg"])
-                except (KeyError, ValueError):
+                    lat = float(
+                        row.get("lat_deg")
+                        or row.get("latitude_deg")
+                        or row.get("LAT_DEG")
+                    )
+                    lon = float(
+                        row.get("lon_deg")
+                        or row.get("longitude_deg")
+                        or row.get("LON_DEG")
+                    )
+                except (TypeError, ValueError):
                     continue
-                self.waypoints[row["ident"].strip().upper()] = (lat, lon)
+                ident = row.get("ident", "").strip().upper()
+                if ident:
+                    self.waypoints[ident] = (lat, lon)
 
     def lookup(self, ident: str) -> Tuple[float, float] | None:
         """Return (lat, lon) for airport or waypoint identifier."""
