@@ -12,7 +12,7 @@ class MCDU:
 
     def __init__(self, fms: FlightManagementSystem) -> None:
         self.fms = fms
-        self.pages = ["f-plan", "prog", "init"]
+        self.pages = ["idx", "f-plan", "prog", "init"]
 
     def load_route(self, idents: List[str]) -> None:
         """Load a new flight plan by waypoint identifiers."""
@@ -57,11 +57,20 @@ class MCDU:
         """Return available MCDU pages."""
         return list(self.pages)
 
+    def all_pages(self) -> dict[str, List[str]]:
+        """Return a mapping of page names to their textual representation."""
+        return {name: self.get_page(name) for name in self.pages}
+
     def get_page(self, name: str) -> List[str]:
         """Return a simple textual representation of an MCDU page."""
         lname = name.lower()
         if lname not in self.pages:
             raise ValueError(f"Unknown page: {name}")
+        if lname == "idx":
+            lines = ["INDEX"]
+            for p in self.pages:
+                lines.append(p.upper())
+            return lines
         if lname == "f-plan":
             lines = ["F-PLAN"]
             for i, wp in enumerate(self.fms.waypoints):

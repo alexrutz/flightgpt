@@ -155,9 +155,7 @@ class A320Cockpit:
             "vertical_mode": self.sim.autopilot.vertical_mode,
             "lateral_mode": self.sim.autopilot.lateral_mode,
         }
-        mcdu_pages = {
-            name: self.mcdu.get_page(name) for name in self.mcdu.list_pages()
-        }
+        mcdu_pages = self.mcdu.all_pages()
         cockpit_data = {
             **data,
             "warnings": warnings,
