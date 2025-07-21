@@ -114,7 +114,8 @@ See [COCKPIT_SYSTEMS.md](COCKPIT_SYSTEMS.md) for an overview of the panels and d
 pip install jsbsim
 ```
 
-2. Run the example simulator:
+2. Run the example simulator (the simulation now advances in real time by
+   default):
 
 ```bash
 python ifrsim.py
@@ -132,7 +133,8 @@ python a320_cockpit_example.py
 ```
 
 The output shows altitude, airspeed, heading and remaining fuel every
-few seconds.  The aircraft model definition is stored in `data/A320`.
+few seconds as the simulation now waits between steps to maintain real
+time.  The aircraft model definition is stored in `data/A320`.
 
 This is only a minimal starting point for a larger non-graphical IFR
 trainer.  You can extend it with your own controls and connect external
