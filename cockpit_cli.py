@@ -45,6 +45,8 @@ HELP_TEXT = """Available commands:
   com2 FREQ           - tune COM2 standby frequency
   swap1               - swap COM1 active and standby
   swap2               - swap COM2 active and standby
+  ils FREQ            - tune ILS standby frequency
+  swapils             - swap ILS active and standby
   quit                - exit the program"""
 
 
@@ -104,13 +106,16 @@ def print_radio(status: dict) -> None:
         f"COM1 {radio.get('com1_active', 0.0):.3f}/"
         f"{radio.get('com1_standby', 0.0):.3f} "
         f"COM2 {radio.get('com2_active', 0.0):.3f}/"
-        f"{radio.get('com2_standby', 0.0):.3f}"
+        f"{radio.get('com2_standby', 0.0):.3f} "
+        f"ILS {radio.get('ils_active', 0.0):.2f}/"
+        f"{radio.get('ils_standby', 0.0):.2f}"
     )
     print(line)
 
 
 def main() -> None:
     cp = A320Cockpit()
+    cp.sim.set_ils_frequency(cp.radio.ils_active)
     print("A320 cockpit CLI. Type 'help' for commands.")
     while True:
         try:
@@ -413,6 +418,16 @@ def main() -> None:
             continue
         if cmd == "swap2":
             cp.radio.swap_com2()
+            continue
+        if cmd == "ils" and args:
+            try:
+                cp.radio.set_ils(float(args[0]))
+            except ValueError:
+                print("Invalid frequency")
+            continue
+        if cmd == "swapils":
+            cp.radio.swap_ils()
+            cp.sim.set_ils_frequency(cp.radio.ils_active)
             continue
         if cmd == "apu" and args:
             if args[0] == "start":
