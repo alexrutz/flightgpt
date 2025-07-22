@@ -59,11 +59,11 @@ constraints provided by the FMS. It also reports the active vertical mode
 can mimic the Airbus flight mode annunciations.
 
 ## Radio Panel
-Provides simple COM1/COM2 frequency management.  Active and standby
+Provides simple COM1/COM2 and ILS frequency management. Active and standby
 frequencies can be swapped to simulate standard Airbus radio operation.
-The CLI offers `com1` and `com2` commands to tune the standby
-frequencies, `swap1` and `swap2` to activate them and a `radio` command to
-print the current settings.
+The CLI offers `com1`, `com2` and `ils` commands to tune the standby
+frequencies, `swap1`, `swap2` and `swapils` to activate them and a `radio`
+command to print the current settings.
 
 ## Transponder
 Allows setting of the transponder code and operating mode.  Selecting

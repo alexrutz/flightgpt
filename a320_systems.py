@@ -256,6 +256,8 @@ class RadioPanel:
         self.com1_standby = 121.5
         self.com2_active = 119.0
         self.com2_standby = 122.5
+        self.ils_active = 110.30
+        self.ils_standby = 110.10
 
     def set_com1(self, freq: float) -> None:
         """Tune the COM1 standby frequency."""
@@ -277,6 +279,16 @@ class RadioPanel:
             self.com2_active,
         )
 
+    def set_ils(self, freq: float) -> None:
+        """Tune the ILS standby frequency."""
+        self.ils_standby = float(freq)
+
+    def swap_ils(self) -> None:
+        self.ils_active, self.ils_standby = (
+            self.ils_standby,
+            self.ils_active,
+        )
+
 
 @dataclass
 class RadioDisplay:
@@ -286,6 +298,8 @@ class RadioDisplay:
     com1_standby: float = 0.0
     com2_active: float = 0.0
     com2_standby: float = 0.0
+    ils_active: float = 0.0
+    ils_standby: float = 0.0
 
     def update(self, data: dict) -> None:
         if "com1_active" in data:
@@ -296,6 +310,10 @@ class RadioDisplay:
             self.com2_active = data["com2_active"]
         if "com2_standby" in data:
             self.com2_standby = data["com2_standby"]
+        if "ils_active" in data:
+            self.ils_active = data["ils_active"]
+        if "ils_standby" in data:
+            self.ils_standby = data["ils_standby"]
 
 
 class Transponder:
@@ -804,6 +822,8 @@ class CockpitSystems:
             "com1_standby": self.radio.com1_standby,
             "com2_active": self.radio.com2_active,
             "com2_standby": self.radio.com2_standby,
+            "ils_active": self.radio.ils_active,
+            "ils_standby": self.radio.ils_standby,
         }))
         self.systems.update(data)
         self.hydraulics.update(data)

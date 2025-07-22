@@ -1430,6 +1430,7 @@ class A320IFRSim:
         self.nav_db = NavDatabase(
             "data/navdb/airports.csv",
             "data/navdb/waypoints.csv",
+            "data/navdb/ils.csv",
         )
         self.engines = EngineSystem(
             [
@@ -1508,6 +1509,15 @@ class A320IFRSim:
     def set_parking_brake(self, on: bool) -> None:
         """Engage or release the parking brake."""
         self.brakes.set_parking_brake(on)
+
+    def set_ils_frequency(self, freq_mhz: float) -> None:
+        """Tune the ILS system to a new frequency if available."""
+        data = self.nav_db.lookup_ils(freq_mhz)
+        if data is None:
+            return
+        lat, lon, hdg, alt = data
+        self.ils = ILSSystem(self.fdm, lat, lon, hdg, alt)
+        self.autopilot.ils = self.ils
 
     def step(self, real_time: bool = True):
         """Advance the simulation by one time step.
