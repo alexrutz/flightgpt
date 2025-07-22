@@ -39,6 +39,7 @@ HELP_TEXT = """Available commands:
   ecam pages          - list available ECAM pages
   ecam PAGE           - show a textual ECAM page
   ewd                 - show the engine warning/system display
+  nd                  - show the navigation display
   quit                - exit the program"""
 
 
@@ -68,9 +69,27 @@ def print_status(status: dict) -> None:
             f" {tcas['distance_nm']:.1f}NM"
             f" {tcas['alt_diff_ft']:.0f}FT"
         )
+    nd = status.get("nav_display", {})
+    line += (
+        f" D2WP {(nd.get('distance_nm') or 0.0):.1f}NM"
+        f" D2ILS {(nd.get('ils_distance_nm') or 0.0):.1f}NM"
+        f" LOC {(nd.get('loc_dev_deg') or 0.0):.1f}deg"
+        f" GS {(nd.get('gs_dev_ft') or 0.0):.0f}FT"
+    )
     active = [name.upper() for name, on in ewd.get("warnings", {}).items() if on]
     if active:
         line += " WARN " + " ".join(active)
+    print(line)
+
+
+def print_nav_display(status: dict) -> None:
+    nd = status.get("nav_display", {})
+    line = (
+        f"D2WP {(nd.get('distance_nm') or 0.0):.1f}NM "
+        f"D2ILS {(nd.get('ils_distance_nm') or 0.0):.1f}NM "
+        f"LOC {(nd.get('loc_dev_deg') or 0.0):.1f}deg "
+        f"GS {(nd.get('gs_dev_ft') or 0.0):.0f}FT"
+    )
     print(line)
 
 
@@ -352,6 +371,10 @@ def main() -> None:
             if active:
                 line += " WARN " + " ".join(active)
             print(line)
+            continue
+        if cmd == "nd":
+            snapshot = cp.cockpit_systems.snapshot()
+            print_nav_display(snapshot)
             continue
         if cmd == "apu" and args:
             if args[0] == "start":
