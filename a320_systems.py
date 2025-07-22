@@ -257,6 +257,14 @@ class RadioPanel:
         self.com2_active = 119.0
         self.com2_standby = 122.5
 
+    def set_com1(self, freq: float) -> None:
+        """Tune the COM1 standby frequency."""
+        self.com1_standby = float(freq)
+
+    def set_com2(self, freq: float) -> None:
+        """Tune the COM2 standby frequency."""
+        self.com2_standby = float(freq)
+
     def swap_com1(self) -> None:
         self.com1_active, self.com1_standby = (
             self.com1_standby,
@@ -268,6 +276,26 @@ class RadioPanel:
             self.com2_standby,
             self.com2_active,
         )
+
+
+@dataclass
+class RadioDisplay:
+    """Display COM1 and COM2 frequencies."""
+
+    com1_active: float = 0.0
+    com1_standby: float = 0.0
+    com2_active: float = 0.0
+    com2_standby: float = 0.0
+
+    def update(self, data: dict) -> None:
+        if "com1_active" in data:
+            self.com1_active = data["com1_active"]
+        if "com1_standby" in data:
+            self.com1_standby = data["com1_standby"]
+        if "com2_active" in data:
+            self.com2_active = data["com2_active"]
+        if "com2_standby" in data:
+            self.com2_standby = data["com2_standby"]
 
 
 class Transponder:
@@ -741,6 +769,7 @@ class CockpitSystems:
     tcas: TCASDisplay = field(default_factory=TCASDisplay)
     autopilot: AutopilotDisplay = field(default_factory=AutopilotDisplay)
     radio: RadioPanel = field(default_factory=RadioPanel)
+    radio_display: RadioDisplay = field(default_factory=RadioDisplay)
     transponder: Transponder = field(default_factory=Transponder)
     systems: SystemsStatusPanel = field(default_factory=SystemsStatusPanel)
     overhead: OverheadPanel = field(default_factory=OverheadPanel)
@@ -770,6 +799,12 @@ class CockpitSystems:
         self.navigation.update(data)
         self.tcas.update(data)
         self.autopilot.update(data.get("autopilot", {}))
+        self.radio_display.update(data.get("radio", {
+            "com1_active": self.radio.com1_active,
+            "com1_standby": self.radio.com1_standby,
+            "com2_active": self.radio.com2_active,
+            "com2_standby": self.radio.com2_standby,
+        }))
         self.systems.update(data)
         self.hydraulics.update(data)
         self.electrical.update(data)
@@ -799,12 +834,7 @@ class CockpitSystems:
             "navigation": asdict(self.navigation),
             "tcas": asdict(self.tcas),
             "autopilot": asdict(self.autopilot),
-            "radio": {
-                "com1_active": self.radio.com1_active,
-                "com1_standby": self.radio.com1_standby,
-                "com2_active": self.radio.com2_active,
-                "com2_standby": self.radio.com2_standby,
-            },
+            "radio": asdict(self.radio_display),
             "transponder": {
                 "code": self.transponder.code,
                 "mode": self.transponder.mode,

@@ -40,6 +40,11 @@ HELP_TEXT = """Available commands:
   ecam PAGE           - show a textual ECAM page
   ewd                 - show the engine warning/system display
   nd                  - show the navigation display
+  radio               - show current radio frequencies
+  com1 FREQ           - tune COM1 standby frequency
+  com2 FREQ           - tune COM2 standby frequency
+  swap1               - swap COM1 active and standby
+  swap2               - swap COM2 active and standby
   quit                - exit the program"""
 
 
@@ -89,6 +94,17 @@ def print_nav_display(status: dict) -> None:
         f"D2ILS {(nd.get('ils_distance_nm') or 0.0):.1f}NM "
         f"LOC {(nd.get('loc_dev_deg') or 0.0):.1f}deg "
         f"GS {(nd.get('gs_dev_ft') or 0.0):.0f}FT"
+    )
+    print(line)
+
+
+def print_radio(status: dict) -> None:
+    radio = status.get("radio", {})
+    line = (
+        f"COM1 {radio.get('com1_active', 0.0):.3f}/"
+        f"{radio.get('com1_standby', 0.0):.3f} "
+        f"COM2 {radio.get('com2_active', 0.0):.3f}/"
+        f"{radio.get('com2_standby', 0.0):.3f}"
     )
     print(line)
 
@@ -375,6 +391,28 @@ def main() -> None:
         if cmd == "nd":
             snapshot = cp.cockpit_systems.snapshot()
             print_nav_display(snapshot)
+            continue
+        if cmd == "radio":
+            snapshot = cp.cockpit_systems.snapshot()
+            print_radio(snapshot)
+            continue
+        if cmd == "com1" and args:
+            try:
+                cp.radio.set_com1(float(args[0]))
+            except ValueError:
+                print("Invalid frequency")
+            continue
+        if cmd == "com2" and args:
+            try:
+                cp.radio.set_com2(float(args[0]))
+            except ValueError:
+                print("Invalid frequency")
+            continue
+        if cmd == "swap1":
+            cp.radio.swap_com1()
+            continue
+        if cmd == "swap2":
+            cp.radio.swap_com2()
             continue
         if cmd == "apu" and args:
             if args[0] == "start":
