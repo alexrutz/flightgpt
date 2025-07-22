@@ -45,6 +45,7 @@ HELP_TEXT = """Available commands:
 def print_status(status: dict) -> None:
     pfd = status["pfd"]
     ecam = status["ecam"]
+    ewd = status.get("ewd", {})
     line = (
         f"ALT {pfd['altitude_ft']:.0f}FT "
         f"SPD {pfd['speed_kt']:.1f}KT "
@@ -67,6 +68,9 @@ def print_status(status: dict) -> None:
             f" {tcas['distance_nm']:.1f}NM"
             f" {tcas['alt_diff_ft']:.0f}FT"
         )
+    active = [name.upper() for name, on in ewd.get("warnings", {}).items() if on]
+    if active:
+        line += " WARN " + " ".join(active)
     print(line)
 
 
