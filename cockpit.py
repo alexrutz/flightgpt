@@ -183,6 +183,12 @@ class A320Cockpit:
             "apu_running": self.sim.electrics.apu_running,
             "generator_failed": self.sim.electrics.generator_failed,
             "autopilot": autopilot_info,
+            "radio": {
+                "com1_active": self.radio.com1_active,
+                "com1_standby": self.radio.com1_standby,
+                "com2_active": self.radio.com2_active,
+                "com2_standby": self.radio.com2_standby,
+            },
             "parking_brake": self.sim.brakes.parking_brake,
             "pressure_hpa": self.altimeter.pressure_hpa,
             "mcdu": {

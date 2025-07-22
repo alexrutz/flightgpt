@@ -154,6 +154,9 @@ textual representation of all ECAM pages. Use `ecam pages` to list them and
 The snapshot also exposes a combined Engine Warning/System display under the
 `ewd` key which mirrors engine data and active cautions.
 Use the `ewd` command in the CLI to print this summary.
+The radio management panel is now integrated as well. Use `com1 FREQ` or
+`com2 FREQ` to tune the standby frequencies, `swap1` or `swap2` to activate
+them and `radio` to print the current settings.
 
 4. Run the cockpit system snapshot example:
 ```bash
